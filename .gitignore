@@ -1,0 +1,36 @@
+# ===== 数据（铁律：任何个人/业务数据都不进仓库） =====
+/notes/
+/data/
+/tmp/
+.tmp-*/
+*.xlsx
+*.csv
+*.zip
+!android-app/**/*.zip
+
+# 运行时/构建产物
+/dist/
+/.build/
+/hub.exe
+/.hub/
+__pycache__/
+*.py[cod]
+*.spec
+*.apk
+*.idsig
+android-app/build/
+
+# 导出的网页快照（含完整数据）
+/hub-web/web/data/
+
+# 登录态 / 密钥 / 邮件授权，绝不入库
+auth.*.json
+sync.key
+mail.json
+*.log
+chrome-last.log
+
+# 系统垃圾
+.DS_Store
+Thumbs.db
+desktop.ini

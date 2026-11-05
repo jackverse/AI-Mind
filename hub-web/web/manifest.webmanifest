@@ -1,0 +1,13 @@
+{
+  "name": "第二大脑 · web",
+  "short_name": "第二大脑",
+  "description": "笔记、刷题、健身、抖音/小红书/账单数据，手机和浏览器都能看",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f4f6fa",
+  "theme_color": "#1a202b",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
