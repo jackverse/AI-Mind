@@ -1,0 +1,28 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "releases/$TAG"/* --clobber
+          else
+            gh release create "$TAG" "releases/$TAG"/* \
+              --title "AI-Mind $TAG" \
+              --notes "抖音 / 小红书数据工作台 ${TAG#v}：Windows 桌面 hub + Android 客户端。仓库只放代码与发版包，不含账号数据。"
+          fi

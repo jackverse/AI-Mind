@@ -119,7 +119,7 @@ Write-Host '→ aapt2 link'
     -A $build\assets `
     --java $build\gen `
     --min-sdk-version 26 --target-sdk-version 34 `
-    --version-code 1 --version-name 1.0 `
+    --version-code 1 --version-name 0.0.1 `
     $build\res.zip
 if ($LASTEXITCODE -ne 0) { Fail "aapt2 link 失败" }
 Ok "资源与清单已打包"

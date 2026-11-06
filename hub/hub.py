@@ -23,7 +23,7 @@ from core import privacy
 from core.paths import Ctx
 
 APP_TITLE = "AI-Mind · 抖音 / 小红书"
-VERSION = "1.0.0"
+VERSION = "0.0.1"
 
 PAGES = {
     "douyin": ("♪", "抖音", "账号数据", "pages.douyin"),

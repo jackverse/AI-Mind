@@ -14,10 +14,10 @@ AI-Mind/
 └─ README.md
 ```
 
-## 下载 v1.0.0
+## 下载 v0.0.1
 
-- **Windows 桌面端**：[hub-v1.0.0-win64.zip](releases/v1.0.0/hub-v1.0.0-win64.zip)（解压后运行 `hub\hub.exe`）
-- **Android**：[hub-android-v1.0.0.apk](releases/v1.0.0/hub-android-v1.0.0.apk)（无内置数据，首次打开后在 ⚙ 填仓库和 Token）
+- **Windows 桌面端**：[hub-v0.0.1-win64.zip](releases/v0.0.1/hub-v0.0.1-win64.zip)（解压后运行 `hub\hub.exe`）
+- **Android**：[hub-android-v0.0.1.apk](releases/v0.0.1/hub-android-v0.0.1.apk)（无内置数据，首次打开后在 ⚙ 填仓库和 Token）
 
 ## 快速开始
 
