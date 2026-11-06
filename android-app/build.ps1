@@ -69,25 +69,19 @@ Ok "web 资源已复制"
 if (-not $SkipSeed -and $VaultRoot) {
     if (-not (Test-Path $VaultRoot)) { Fail "VaultRoot 不存在：$VaultRoot" }
     $vault = (Resolve-Path $VaultRoot).Path
-    $notesSrc = Join-Path $vault 'notes'
-    if (-not (Test-Path $notesSrc)) { Fail "VaultRoot 下没有 notes\：$vault" }
+    $hubSrc = Join-Path $vault 'data\hub'
+    if (-not (Test-Path $hubSrc)) { Fail "VaultRoot 下没有 data\hub\：$vault" }
     $seed = Join-Path $build 'assets\seed'
     New-Item -ItemType Directory -Path $seed -Force | Out-Null
-    Get-ChildItem $notesSrc -Recurse -File | Where-Object {
-        $_.Extension -in '.md', '.json', '.jsonl'
-    } | ForEach-Object {
-        $rel = $_.FullName.Substring($notesSrc.Length + 1)
-        $dst = Join-Path (Join-Path $seed 'notes') $rel
-        New-Item -ItemType Directory -Path (Split-Path -Parent $dst) -Force | Out-Null
-        Copy-Item $_.FullName $dst -Force
-    }
-    $hubSrc = Join-Path $vault 'data\hub'
-    if (Test-Path $hubSrc) {
-        Get-ChildItem $hubSrc -Recurse -File -Filter *.json | Where-Object {
+    foreach ($kind in @('douyin', 'xhs')) {
+        $src = Join-Path $hubSrc $kind
+        if (-not (Test-Path $src)) { continue }
+        Get-ChildItem $src -Recurse -File -Filter *.json | Where-Object {
             $_.Name -notlike 'auth.*' -and
             $_.Name -notin @('sync.json', 'mail.json') -and
             $_.Name -notlike 'usage*' -and
-            $_.FullName -notlike '*\exports\*'
+            $_.FullName -notlike '*\exports\*' -and
+            $_.FullName -notlike '*\probe\*'
         } | ForEach-Object {
             $rel = $_.FullName.Substring($hubSrc.Length + 1)
             $dst = Join-Path (Join-Path $seed 'data\hub') $rel

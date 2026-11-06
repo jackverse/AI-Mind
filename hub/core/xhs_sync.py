@@ -21,6 +21,7 @@ import time as _time
 import urllib.error
 import urllib.request
 from datetime import date, datetime, time, timedelta
+from pathlib import Path
 
 from . import paths, xhs, xhs_auth
 
@@ -769,14 +770,10 @@ def sync(log=None, cfg=None):
 
 # ------------------------------------------------------------------ 计划任务
 def _task_binary():
-    """计划任务要跑的命令：优先仓库根的 hub.exe，源码运行退化成 python hub.py。"""
+    """计划任务要跑的命令：打包版直接跑 exe，源码版跑 hub/hub.py。"""
     if getattr(sys, "frozen", False):
         return f'"{sys.executable}" --daily-sync'
-    repo = paths.find_repo_root()
-    exe = repo / "hub.exe"
-    if exe.is_file():
-        return f'"{exe}" --daily-sync'
-    script = repo / "tools" / "hub" / "hub.py"
+    script = Path(__file__).resolve().parents[1] / "hub.py"
     return f'"{sys.executable}" "{script}" --daily-sync'
 
 

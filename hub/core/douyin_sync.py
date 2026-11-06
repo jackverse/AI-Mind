@@ -32,6 +32,7 @@ import urllib.parse
 import urllib.request
 import zipfile
 from datetime import date, datetime, time, timedelta
+from pathlib import Path
 
 from . import browser, douyin, douyin_auth, paths
 
@@ -794,11 +795,7 @@ def sync(log=None, only=None):
 def _task_binary():
     if getattr(sys, "frozen", False):
         return f'"{sys.executable}" --douyin-sync'
-    repo = paths.find_repo_root()
-    exe = repo / "hub.exe"
-    if exe.is_file():
-        return f'"{exe}" --douyin-sync'
-    script = repo / "tools" / "hub" / "hub.py"
+    script = Path(__file__).resolve().parents[1] / "hub.py"
     return f'"{sys.executable}" "{script}" --douyin-sync'
 
 

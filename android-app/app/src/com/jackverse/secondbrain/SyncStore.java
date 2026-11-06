@@ -10,8 +10,4 @@ public interface SyncStore {
     void write(String path, byte[] data) throws IOException;
 
     void prune(Set<String> keep) throws IOException;
-
-    Set<String> dirty();
-
-    void clearDirty() throws IOException;
 }

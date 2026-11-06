@@ -32,8 +32,8 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * 第二大脑 Android：半离线。
- * 本地留一份 notes/ + data/hub/ 的副本（首启来自 APK 内置快照），点「☁」直接跟 GitHub 仓库同步。
+ * AI-Mind Android：半离线。
+ * 本地留一份 data/hub/ 的副本（首启来自 APK 内置快照），点「☁」从 GitHub 仓库拉取最新数据。
  */
 public class MainActivity extends Activity {
 
@@ -172,7 +172,7 @@ public class MainActivity extends Activity {
                 + "function add(id,label,title,fn){if(document.getElementById(id))return;"
                 + "var b=document.createElement('button');b.id=id;b.className='icon-btn';b.title=title;"
                 + "b.style.fontSize='14px';b.textContent=label;b.onclick=fn;bar.appendChild(b);}"
-                + "add('app-sync','☁','同步 GitHub',function(){AndroidRepo.requestSync();});"
+                + "add('app-sync','☁','拉取 GitHub',function(){AndroidRepo.requestSync();});"
                 + "add('app-settings','⚙','数据来源 / 同步设置',function(){AndroidRepo.openSettings();});"
                 + "}catch(e){}})();";
         web.evaluateJavascript(js, null);
@@ -207,15 +207,15 @@ public class MainActivity extends Activity {
         box.addView(branchInput);
         box.addView(label("Token（需要 repo 读写权限）"));
         box.addView(tokenInput);
-        TextView tip = label("Token 只存在本机 App 私有目录；留空只能读公开仓库。\n同步会先推送本机复习进度，再拉取最新笔记与数据。");
+        TextView tip = label("Token 只存在本机 App 私有目录；留空只能读公开仓库。\n同步只拉取 data/hub/ 下的账号与作品数据，不改远程。");
         tip.setTextSize(11);
         tip.setTextColor(Color.parseColor("#8A94A6"));
         box.addView(tip);
 
         AlertDialog.Builder b = new AlertDialog.Builder(this);
-        b.setTitle("GitHub 同步");
+        b.setTitle("GitHub 数据源");
         b.setView(box);
-        b.setPositiveButton("保存并同步", (dialog, which) -> {
+        b.setPositiveButton("保存并拉取", (dialog, which) -> {
             saveConfig(repoInput, branchInput, tokenInput);
             startSync();
         });
@@ -260,7 +260,7 @@ public class MainActivity extends Activity {
     // -------------------------------------------------------------- 同步
     private void startSync() {
         if (syncing) {
-            toast("正在同步…");
+            toast("正在拉取…");
             return;
         }
         if (repo().isEmpty()) {
@@ -275,21 +275,21 @@ public class MainActivity extends Activity {
         }
         syncing = true;
         final ProgressDialog pd = new ProgressDialog(this);
-        pd.setTitle("同步 GitHub");
+        pd.setTitle("拉取 GitHub");
         pd.setMessage("准备中…");
         pd.setCancelable(false);
         pd.show();
         final GitHubClient client = new GitHubClient(repo(), token(), branch());
         new Thread(() -> {
             try {
-                client.sync(store, msg -> runOnUiThread(() -> {
+                client.pull(store, msg -> runOnUiThread(() -> {
                     if (pd.isShowing()) pd.setMessage(msg);
                 }));
                 prefs.edit().putString("last_sync", now()).putString("last_error", "").apply();
                 runOnUiThread(() -> {
                     syncing = false;
                     pd.dismiss();
-                    toast("同步完成");
+                    toast("拉取完成");
                     web.reload();
                 });
             } catch (Exception e) {
@@ -299,7 +299,7 @@ public class MainActivity extends Activity {
                     syncing = false;
                     pd.dismiss();
                     new AlertDialog.Builder(MainActivity.this)
-                            .setTitle("同步失败")
+                            .setTitle("拉取失败")
                             .setMessage(msg)
                             .setPositiveButton("打开设置", (d, w) -> showSettings())
                             .setNegativeButton("知道了", null)
@@ -346,11 +346,6 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
-        public String answer(String subject, String qid, boolean ok) {
-            return store.answer(subject, qid, ok);
-        }
-
-        @JavascriptInterface
         public String status() {
             JSONObject o = new JSONObject();
             try {
@@ -358,7 +353,6 @@ public class MainActivity extends Activity {
                 o.put("branch", branch());
                 o.put("lastSync", prefs.getString("last_sync", ""));
                 o.put("lastError", prefs.getString("last_error", ""));
-                o.put("dirty", store.dirty().size());
             } catch (Exception ignored) {
             }
             return o.toString();

@@ -1,7 +1,7 @@
 {
-  "name": "第二大脑 · web",
-  "short_name": "第二大脑",
-  "description": "笔记、刷题、健身、抖音/小红书/账单数据，手机和浏览器都能看",
+  "name": "AI-Mind · 抖音 / 小红书",
+  "short_name": "AI-Mind",
+  "description": "抖音 / 小红书账号数据，手机和浏览器都能看",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

@@ -1,29 +1,19 @@
 'use strict';
 
 /* =====================================================================
- * 第二大脑 · web —— hub 的浏览器版
+ * AI-Mind · web — 抖音 / 小红书数据
  * 数据来自 server.py 的 /api/bundle；没有服务端时退回 data/bundle.json 静态快照。
  * ===================================================================== */
 
 const PAGES = [
-  { key: 'home',     ico: '◎', name: '首页',   sub: '总览' },
-  { key: 'notes',    ico: '☰', name: '笔记',   sub: '全部 md' },
-  { key: 'fitness',  ico: '♥', name: '健身',   sub: '日报派生' },
-  { key: 'timeline', ico: '⏱', name: '时间线', sub: '在干嘛' },
-  { key: 'douyin',   ico: '♪', name: '抖音',   sub: '作品与趋势' },
-  { key: 'xhs',      ico: '✦', name: '小红书', sub: '笔记与指标' },
-  { key: 'bills',    ico: '¥', name: '账单',   sub: '收支' },
-  { key: 'quiz',     ico: '✎', name: '刷题',   sub: '题库' },
-  { key: 'stats',    ico: '▤', name: '统计',   sub: '掌握度' },
+  { key: 'douyin', ico: '♪', name: '抖音',   sub: '作品与趋势' },
+  { key: 'xhs',    ico: '✦', name: '小红书', sub: '笔记与指标' },
 ];
 
 const state = {
   data: null,
-  route: { key: 'home', params: {} },
-  notes: { groupOpen: {}, q: '' },
-  tl: { filter: 'all', expanded: {} },
-  sel: { douyin: '__all__', xhs: '__all__', bills: '__all__' },
-  quiz: null,
+  route: { key: 'douyin', params: {} },
+  sel: { douyin: '__all__', xhs: '__all__' },
 };
 
 /* ------------------------------------------------------------ 小工具 */
@@ -62,7 +52,7 @@ function parseHash() {
   const [path, qs] = raw.split('?');
   const params = {};
   new URLSearchParams(qs || '').forEach((v, k) => { params[k] = v; });
-  return { key: PAGES.some((p) => p.key === path) ? path : 'home', params };
+  return { key: PAGES.some((p) => p.key === path) ? path : 'douyin', params };
 }
 
 /* ------------------------------------------------------------ 数据 */
@@ -84,25 +74,11 @@ async function loadData() {
     if (!r.ok) throw new Error('没有找到数据：请用 server.py 启动，或先生成静态快照');
     const data = await r.json();
     data.meta.mode = 'static';
-    mergeLocalQuiz(data);
     return data;
   }
 }
 
 /* 静态模式下刷题进度只存浏览器本地 */
-const LS_KEY = 'hubweb.quiz.review';
-function localReview() {
-  try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}'); } catch (e) { return {}; }
-}
-function saveLocalReview(obj) {
-  try { localStorage.setItem(LS_KEY, JSON.stringify(obj)); } catch (e) { /* 隐私模式忽略 */ }
-}
-function mergeLocalQuiz(data) {
-  const local = localReview();
-  (data.quiz?.subjects || []).forEach((s) => {
-    s.review = Object.assign({}, s.review || {}, local[s.subject] || {});
-  });
-}
 
 /* ------------------------------------------------------------ 图表 */
 function svgWrap(w, h, inner, cls = 'chart') {
@@ -190,114 +166,6 @@ function chartBars(labels, values, opts = {}) {
 }
 
 /* ------------------------------------------------------------ Markdown */
-function inlineMd(s, baseDir) {
-  let t = esc(s);
-  t = t.replace(/`([^`]+)`/g, '<code>$1</code>');
-  t = t.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, '<span aria-label="$1">🖼</span>');
-  t = t.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (m, label, href) => {
-    const raw = href.replace(/&amp;/g, '&');
-    return `<a href="${mdHref(raw, baseDir)}" ${/^https?:/.test(raw) ? 'target="_blank" rel="noopener"' : ''}>${label}</a>`;
-  });
-  t = t.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  t = t.replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
-  t = t.replace(/~~([^~]+)~~/g, '<del>$1</del>');
-  return t;
-}
-
-function mdHref(href, baseDir) {
-  if (/^https?:|^mailto:|^#/.test(href)) return escAttr(href);
-  const clean = href.split('#')[0];
-  if (/\.md$/i.test(clean)) {
-    let p = clean;
-    if (!clean.startsWith('notes/')) {
-      const segs = (baseDir || 'notes').split('/').filter(Boolean);
-      clean.split('/').forEach((s) => {
-        if (s === '..') segs.pop();
-        else if (s !== '.') segs.push(s);
-      });
-      p = segs.join('/');
-    }
-    if (p.startsWith('notes/')) return '#/notes?path=' + encodeURIComponent(p);
-  }
-  return escAttr(href);
-}
-
-function renderMarkdown(text, baseDir) {
-  const lines = String(text || '').split(/\r?\n/);
-  const out = [];
-  let i = 0;
-
-  const isBlockStart = (ln) => /^(#{1,6}\s|```|\s*[-*+]\s+|\s*\d+\.\s+|>\s?|\|)/.test(ln);
-
-  while (i < lines.length) {
-    const line = lines[i];
-
-    if (/^```/.test(line)) {
-      const lang = line.slice(3).trim();
-      const buf = [];
-      i++;
-      while (i < lines.length && !/^```/.test(lines[i])) buf.push(lines[i++]);
-      i++;
-      out.push(`<pre${lang ? ` data-lang="${escAttr(lang)}"` : ''}><code>${esc(buf.join('\n'))}</code></pre>`);
-      continue;
-    }
-
-    if (!line.trim()) { i++; continue; }
-
-    const h = line.match(/^(#{1,6})\s+(.*)$/);
-    if (h) {
-      const lv = h[1].length;
-      out.push(`<h${lv}>${inlineMd(h[2], baseDir)}</h${lv}>`);
-      i++;
-      continue;
-    }
-
-    if (/^\s*(-{3,}|\*{3,})\s*$/.test(line)) { out.push('<hr>'); i++; continue; }
-
-    if (/^\s*\|/.test(line) && i + 1 < lines.length && /^\s*\|?[\s:|-]+\|[\s:|-]*$/.test(lines[i + 1])) {
-      const cells = (ln) => ln.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim());
-      const head = cells(line);
-      i += 2;
-      const rows = [];
-      while (i < lines.length && /^\s*\|/.test(lines[i])) rows.push(cells(lines[i++]));
-      out.push(`<div class="md-table-wrap${head.length <= 3 ? ' narrow' : ''}"><table><thead><tr>` +
-        head.map((c) => `<th>${inlineMd(c, baseDir)}</th>`).join('') + '</tr></thead><tbody>' +
-        rows.map((r) => '<tr>' + r.map((c) => `<td>${inlineMd(c, baseDir)}</td>`).join('') + '</tr>').join('') +
-        '</tbody></table></div>');
-      continue;
-    }
-
-    if (/^\s*>\s?/.test(line)) {
-      const buf = [];
-      while (i < lines.length && /^\s*>\s?/.test(lines[i])) buf.push(lines[i++].replace(/^\s*>\s?/, ''));
-      out.push(`<blockquote>${renderMarkdown(buf.join('\n'), baseDir)}</blockquote>`);
-      continue;
-    }
-
-    if (/^\s*([-*+]|\d+\.)\s+/.test(line)) {
-      const ordered = /^\s*\d+\.\s+/.test(line);
-      const items = [];
-      while (i < lines.length && /^\s*([-*+]|\d+\.)\s+/.test(lines[i])) {
-        let it = lines[i++].replace(/^\s*([-*+]|\d+\.)\s+/, '');
-        let checkbox = '';
-        const cb = it.match(/^\[([ xX])\]\s+(.*)$/);
-        if (cb) {
-          checkbox = `<input type="checkbox" disabled ${cb[1].toLowerCase() === 'x' ? 'checked' : ''}>`;
-          it = cb[2];
-        }
-        items.push(`<li>${checkbox}${inlineMd(it, baseDir)}</li>`);
-      }
-      out.push(ordered ? `<ol>${items.join('')}</ol>` : `<ul>${items.join('')}</ul>`);
-      continue;
-    }
-
-    const buf = [line];
-    i++;
-    while (i < lines.length && lines[i].trim() && !isBlockStart(lines[i])) buf.push(lines[i++]);
-    out.push(`<p>${inlineMd(buf.join(' '), baseDir)}</p>`);
-  }
-  return out.join('\n');
-}
 
 /* ------------------------------------------------------------ 框架 */
 function renderNav() {
@@ -321,7 +189,7 @@ function setChrome(title, sub) {
   pill.textContent = { live: '实时数据', static: '静态快照', android: '半离线' }[mode] || '读取中';
   pill.className = 'pill ' + (mode === 'static' ? 'static' : 'live');
   const where = mode === 'android' ? 'Android · 本地副本' : (mode === 'live' ? '服务端' : '快照');
-  $('#side-foot').innerHTML = `数据更新 ${esc(state.data?.meta?.generated_at || '—')}<br>${esc(state.data?.meta?.machine || '')} · ${where}`;
+  $('#side-foot').innerHTML = `数据更新 ${esc(state.data?.meta?.generated_at || '—')}<br>${where}`;
 }
 
 async function render() {
@@ -330,326 +198,14 @@ async function render() {
   const page = PAGES.find((p) => p.key === key) || PAGES[0];
   renderNav();
   const view = $('#view');
-  const pages = { home: pageHome, notes: pageNotes, fitness: pageFitness, timeline: pageTimeline, douyin: pageDouyin, xhs: pageXhs, bills: pageBills, quiz: pageQuiz, stats: pageStats };
-  const result = (pages[key] || pageHome)();
+  const pages = { douyin: pageDouyin, xhs: pageXhs };
+  const result = (pages[key] || pageDouyin)();
   setChrome(page.name + (result.crumb ? ' · ' + result.crumb : ''), result.sub || page.sub);
   view.innerHTML = result.html;
   if (result.mount) result.mount();
   window.scrollTo(0, 0);
 }
 
-/* ------------------------------------------------------------ 首页 */
-function pageHome() {
-  const d = state.data;
-  const h = d.home;
-  const todayRow = (d.fitness.rows || []).find((r) => r.date === h.today);
-  const latest = (d.fitness.series || []).slice(-1)[0];
-  const wDelta = d.fitness.summary?.w_delta;
-  const fitnessLine = todayRow
-    ? (todayRow.status === 'train' ? `<span class="tag train">练 ${esc(todayRow.fitness)}</span>`
-      : todayRow.status === 'rest' ? '<span class="tag rest">休息</span>'
-      : todayRow.status === 'plan' ? `<span class="tag plan">计划 ${esc(todayRow.fitness)}</span>`
-      : '<span class="tag">今日未记训练</span>')
-    : '<span class="tag">今天还没记日报</span>';
-
-  const entries = [
-    ['notes', '☰', '笔记', 'Markdown 笔记，按目录分组', h.notes + ' 篇'],
-    ['quiz', '✎', '刷题', '选择题即时判分，进度和桌面 hub 共用', h.questions + ' 题'],
-    ['fitness', '♥', '健身', '体重曲线 / 打卡率 / 部位分布', '连续 ' + (d.fitness.summary?.rec_streak ?? 0) + ' 天'],
-    ['timeline', '⏱', '时间线', '把日报和交流记录摊成一条轴', (d.timeline.days || []).length + ' 天'],
-  ];
-
-  const recent = (h.recent || []).map((f) => `
-    <div class="recent-row" data-note="${escAttr(f.path)}">
-      <span class="name">${esc(f.title)}</span>
-      <span class="when">${new Date(f.mtime * 1000).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })}</span>
-    </div>`).join('');
-
-  const html = `
-    <div class="hero">
-      <h2>${esc(h.today)} · ${esc(h.week)}</h2>
-      <p>${latest ? `最新体重 <b>${n1(latest.weight)} 斤</b>${wDelta ? `（累计 ${wDelta > 0 ? '-' : '+'}${Math.abs(wDelta).toFixed(1)} 斤）` : ''}` : '还没有体重记录'}</p>
-      <div class="chips">
-        <div class="chip"><b>${h.notes}</b>篇笔记</div>
-        <div class="chip"><b>${h.questions}</b>道题</div>
-        <div class="chip"><b>${h.wrong}</b>道错题</div>
-        <div class="chip">${fitnessLine}</div>
-      </div>
-    </div>
-
-    <div class="grid g4" style="margin-bottom:14px">
-      <div class="tile accent"><div class="v">${h.subjects}</div><div class="k">科目</div></div>
-      <div class="tile"><div class="v">${n0(h.questions)}</div><div class="k">题目总数</div></div>
-      <div class="tile bad"><div class="v">${n0(h.wrong)}</div><div class="k">待攻克错题</div></div>
-      <div class="tile"><div class="v">${h.notes}</div><div class="k">笔记文件</div></div>
-    </div>
-
-    <div class="grid g4" style="margin-bottom:14px">
-      ${entries.map(([k, ico, name, desc, num]) => `
-        <div class="entry" data-go="${k}">
-          <div class="top"><span class="ico">${ico}</span>${name}</div>
-          <div class="desc">${desc}</div>
-          <div class="num">${num}</div>
-        </div>`).join('')}
-    </div>
-
-    <div class="card card-pad">
-      <div class="card-title">最近更新 <span class="hint">点一行直接看</span></div>
-      ${recent || '<div class="empty">还没有笔记</div>'}
-    </div>`;
-
-  return {
-    sub: '笔记、刷题、健身、账号数据，一个页面看完',
-    html,
-    mount() {
-      document.querySelectorAll('[data-note]').forEach((el) => el.addEventListener('click', () => {
-        go('notes', { path: el.dataset.note });
-      }));
-    },
-  };
-}
-
-/* ------------------------------------------------------------ 笔记 */
-function noteGroups() {
-  const files = state.data.notes.files;
-  const q = state.notes.q.trim().toLowerCase();
-  const shown = q ? files.filter((f) => (f.title + f.path).toLowerCase().includes(q)) : files;
-  const groups = new Map();
-  shown.forEach((f) => {
-    const g = f.group || '根目录';
-    if (!groups.has(g)) groups.set(g, []);
-    groups.get(g).push(f);
-  });
-  const order = [...groups.keys()].sort((a, b) => {
-    if (a === '根目录') return -1;
-    if (b === '根目录') return 1;
-    return a.localeCompare(b, 'zh');
-  });
-  return { groups, order, q, total: shown.length };
-}
-
-function pageNotes() {
-  const { groups, order, q, total } = noteGroups();
-  const { path } = state.route.params;
-  const data = state.data.notes;
-
-  if (path && data.texts[path] != null) {
-    const meta = data.files.find((f) => f.path === path) || {};
-    const baseDir = path.split('/').slice(0, -1).join('/');
-    const html = `
-      <div class="notes-wrap reading">
-        <aside class="note-tree card" id="tree">${treeHtml(groups, order, path, q, total)}</aside>
-        <article class="doc card">
-          <div class="doc-head">
-            <button class="btn back" id="back">← 列表</button>
-            <span class="tag">${esc(path)}</span>
-            <span class="spacer"></span>
-            <span class="hint" style="color:var(--faint);font-size:11.5px">${meta.mtime ? new Date(meta.mtime * 1000).toLocaleString('zh-CN') : ''}</span>
-          </div>
-          ${renderMarkdown(data.texts[path], baseDir)}
-        </article>
-      </div>`;
-    return {
-      crumb: meta.title || path.split('/').pop(),
-      sub: meta.group ? meta.group + ' / ' + meta.name : meta.name,
-      html,
-      mount() {
-        $('#back')?.addEventListener('click', () => go('notes'));
-        bindTree(path);
-        document.querySelectorAll('.doc a[href^="#/notes"]').forEach((a) => {
-          a.addEventListener('click', (e) => {
-            e.preventDefault();
-            const p = decodeURIComponent(a.getAttribute('href').split('path=')[1] || '');
-            if (data.texts[p] != null) go('notes', { path: p });
-            else toast('这篇笔记不在 notes/ 里：' + p);
-          });
-        });
-      },
-    };
-  }
-
-  const html = `
-    <div class="notes-wrap">
-      <aside class="note-tree card" id="tree">${treeHtml(groups, order, null, q, total)}</aside>
-      <article class="doc card">
-        <div class="empty" style="padding:80px 10px">
-          <b>从左边选一篇</b>
-          共 ${data.files.length} 篇 Markdown，按目录分组；开头的搜索框可以按标题/路径过滤。
-        </div>
-      </article>
-    </div>`;
-  return {
-    sub: `${data.files.length} 篇 · ${groups.size} 组`,
-    html,
-    mount() {
-      bindTree(null);
-      const search = $('#note-search');
-      if (search) {
-        search.value = state.notes.q;
-        let timer;
-        search.addEventListener('input', () => {
-          clearTimeout(timer);
-          timer = setTimeout(() => {
-            state.notes.q = search.value;
-            render();
-            const el = $('#note-search');
-            if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
-          }, 160);
-        });
-      }
-    },
-  };
-}
-
-function treeHtml(groups, order, active, q, total) {
-  const inner = order.map((g) => {
-    const open = q ? true : (state.notes.groupOpen[g] ?? (g === '根目录' || g === 'topics'));
-    const items = groups.get(g).map((f) => `
-      <a class="tree-item ${active === f.path ? 'active' : ''}" href="#/notes?path=${encodeURIComponent(f.path)}" data-path="${escAttr(f.path)}" title="${escAttr(f.path)}">
-        ${esc(f.title)}
-      </a>`).join('');
-    return `<div class="tree-group ${open ? '' : 'closed'}" data-group="${escAttr(g)}">
-      <div class="tree-head"><span class="arrow">▾</span>${esc(g)} <span class="count">${groups.get(g).length}</span></div>
-      <div class="tree-items">${items}</div>
-    </div>`;
-  }).join('');
-  return `
-    <input type="search" id="note-search" placeholder="搜索标题或路径…" style="width:100%;margin-bottom:10px">
-    ${q ? `<div style="font-size:11.5px;color:var(--faint);padding:0 8px 8px">命中 ${total} 篇</div>` : ''}
-    ${inner || '<div class="empty">没有匹配的笔记</div>'}`;
-}
-
-function bindTree(active) {
-  document.querySelectorAll('.tree-head').forEach((el) => {
-    el.addEventListener('click', () => {
-      const group = el.parentElement;
-      const name = group.dataset.group;
-      const closed = group.classList.toggle('closed');
-      state.notes.groupOpen[name] = !closed;
-    });
-  });
-  document.querySelectorAll('.tree-item').forEach((el) => {
-    el.addEventListener('click', (e) => {
-      e.preventDefault();
-      go('notes', { path: el.dataset.path });
-    });
-  });
-}
-
-/* ------------------------------------------------------------ 健身 */
-function pageFitness() {
-  const f = state.data.fitness;
-  if (f.error) return { html: `<div class="card"><div class="empty">${esc(f.error)}</div></div>` };
-  const s = f.summary;
-  const series = f.series || [];
-  const labels = series.map((p) => mmdd(p.date));
-  const weightVals = series.map((p) => p.weight);
-  const maVals = (f.moving || []).map((p) => p.weight);
-  const parts = f.parts || [];
-  const maxPart = Math.max(1, ...parts.map((p) => p.count));
-  const cal = f.calendar || [];
-
-  const tiles = [
-    ['记录天数', s.days, '连续记录 ' + s.rec_streak + ' 天'],
-    ['训练', s.train, '休息 ' + s.rest + ' 天 · 计划 ' + s.plan],
-    ['打卡率', s.rate + '%', '近 7 天练 ' + s.recent7 + ' 次'],
-    ['连续训练', s.streak + ' 天', '最长 ' + s.best_streak + ' 天'],
-    ['当前体重', s.w_last ? n1(s.w_last[1]) + ' 斤' : '—', s.w_last ? s.w_last[0] : ''],
-    ['体重变化', s.w_delta ? '-' + Math.abs(s.w_delta).toFixed(1) + ' 斤' : '—', s.w_first ? '起始 ' + n1(s.w_first[1]) : ''],
-    ['最低体重', s.w_min ? n1(s.w_min[1]) + ' 斤' : '—', s.w_min ? s.w_min[0] : ''],
-    ['训练部位', parts[0] ? parts[0].part : '—', parts[0] ? parts[0].count + ' 次' : ''],
-  ];
-
-  const heat = cal.map((c) => {
-    const cls = c.status === 'train' ? 'train' : c.status === 'rest' ? 'rest' : c.status === 'plan' ? 'plan' : 'none';
-    const label = c.status === 'train' ? '训练' : c.status === 'rest' ? '休息' : c.status === 'plan' ? '计划' : '未记';
-    return `<div class="cell ${cls}" title="${esc(c.date)} · ${label}"></div>`;
-  }).join('');
-
-  const html = `
-    <div class="grid g4" style="margin-bottom:14px">
-      ${tiles.map(([k, v, d]) => `<div class="tile"><div class="v">${v}</div><div class="k">${k}</div><div class="d">${esc(d)}</div></div>`).join('')}
-    </div>
-    <div class="grid g2">
-      <div class="card card-pad" style="grid-column:1/-1">
-        <div class="card-title">体重曲线 <span class="hint">实线＝体重，虚线＝7 日均线</span></div>
-        ${chartLine(labels, [
-          { values: weightVals, fill: true, dots: true },
-          { values: maVals, dash: '5 4', dots: false, color: '#9db4e8' },
-        ], { height: 260, yFmt: (v) => n1(v) })}
-      </div>
-      <div class="card card-pad">
-        <div class="card-title">近 30 天 <span class="hint">绿=训练 · 灰=休息 · 黄=计划</span></div>
-        <div class="heat">${heat}</div>
-        <div class="legend" style="margin-top:12px">
-          <span><i style="background:var(--ok)"></i>训练</span>
-          <span><i style="background:#dfe5ef"></i>休息</span>
-          <span><i style="background:#f0c96a"></i>计划</span>
-          <span><i style="background:#f4f6fa;border:1px solid #edf0f6"></i>未记录</span>
-        </div>
-      </div>
-      <div class="card card-pad">
-        <div class="card-title">训练部位 <span class="hint">按日报里的关键词归类</span></div>
-        <div class="bars">
-          ${parts.map((p) => `<div class="bar-row"><span>${esc(p.part)}</span><div class="bar-track"><div class="bar-fill" style="width:${(p.count / maxPart * 100).toFixed(0)}%"></div></div><span class="n">${p.count}</span></div>`).join('') || '<div class="empty">还没有训练记录</div>'}
-        </div>
-      </div>
-    </div>`;
-  return { sub: '从 daily-log.md 派生，不额外维护数据', html };
-}
-
-/* ------------------------------------------------------------ 时间线 */
-function pageTimeline() {
-  const tl = state.data.timeline;
-  const days = tl.days || [];
-  const flt = state.tl.filter;
-  const shown = flt === 'all' ? days : days.filter((d) => d.items.some((i) => i.kind === flt));
-  const n = flt === 'all' ? days.reduce((a, d) => a + d.items.length, 0)
-    : days.reduce((a, d) => a + d.items.filter((i) => i.kind === flt).length, 0);
-  const range = days.length ? `${days[days.length - 1].date} ~ ${days[0].date}` : '';
-
-  const html = `
-    <div class="row" style="align-items:center;margin-bottom:14px">
-      <div class="seg">
-        <button data-flt="all" class="${flt === 'all' ? 'on' : ''}">全部</button>
-        <button data-flt="daily" class="${flt === 'daily' ? 'on' : ''}">日常</button>
-        <button data-flt="talk" class="${flt === 'talk' ? 'on' : ''}">交流</button>
-      </div>
-      <span class="hint" style="color:var(--faint);font-size:12px">${shown.length} 天 · ${n} 条 · ${range}</span>
-    </div>
-    ${shown.map((d) => {
-      const items = flt === 'all' ? d.items : d.items.filter((i) => i.kind === flt);
-      const open = state.tl.expanded[d.date] || items.length <= 6;
-      const vis = open ? items : items.slice(0, 6);
-      return `<div class="day ${d.today ? 'today' : ''}">
-        <div class="day-date"><div class="d">${d.today ? '今天' : esc(d.date.slice(5))}</div><div class="w">${esc(d.week)} · ${esc(d.date.slice(0, 4))}</div></div>
-        <div class="day-card card">
-          ${vis.map((i) => `<div class="tl-item">
-            <span class="tag ${i.tag === '健身' ? 'train' : ''}">${esc(i.tag)}</span>
-            <span class="txt">${i.path ? `<a href="#/notes?path=${encodeURIComponent(i.path)}" data-note="${escAttr(i.path)}">${esc(i.text)}</a>` : esc(i.text)}</span>
-          </div>`).join('')}
-          ${!open ? `<div class="more" data-more="${d.date}">展开其余 ${items.length - 6} 条 ▾</div>` : ''}
-        </div>
-      </div>`;
-    }).join('') || '<div class="empty">没有记录</div>'}`;
-
-  return {
-    sub: '日报 + 交流记录，倒序摊平；点条目直达原笔记',
-    html,
-    mount() {
-      document.querySelectorAll('[data-flt]').forEach((b) => b.addEventListener('click', () => {
-        state.tl.filter = b.dataset.flt; render();
-      }));
-      document.querySelectorAll('[data-more]').forEach((b) => b.addEventListener('click', () => {
-        state.tl.expanded[b.dataset.more] = true; render();
-      }));
-      document.querySelectorAll('.tl-item a[data-note]').forEach((a) => a.addEventListener('click', (e) => {
-        e.preventDefault();
-        go('notes', { path: a.dataset.note });
-      }));
-    },
-  };
-}
 
 /* ------------------------------------------------------------ 账号切换器 */
 function accountSelect(kind, accounts, allLabel) {
@@ -827,315 +383,6 @@ function pageXhs() {
 
   return { sub: `${accounts.length} 个账号 · 只读`, html, mount() { bindAccount('xhs'); } };
 }
-
-/* ------------------------------------------------------------ 账单 */
-function pageBills() {
-  const b = state.data.bills;
-  const accounts = b.accounts || [];
-  if (!accounts.length) {
-    return { html: `<div class="card card-pad"><div class="empty"><b>还没有账单数据</b>桌面 hub 的「账单」页导入后，这里就会自动出现。</div></div>` };
-  }
-  const key = state.sel.bills && b.views[state.sel.bills] ? state.sel.bills : '__all__';
-  const v = b.views[key] || {};
-  if (v.error) return { html: `<div class="card card-pad"><div class="empty">${esc(v.error)}</div></div>` };
-  const days = v.days || [];
-  const txns = (v.txns || []).slice(0, 60);
-  const cats = (v.categories || []).slice(0, 8);
-  const maxCat = Math.max(1, ...cats.map((c) => c[1]));
-  const opts = [`<option value="__all__" ${key === '__all__' ? 'selected' : ''}>全部账户</option>`]
-    .concat(accounts.map((a) => `<option value="${escAttr(a.id)}" ${key === a.id ? 'selected' : ''}>${esc(a.name || a.id)}</option>`));
-
-  const html = `
-    <div class="row" style="align-items:center;margin-bottom:14px">
-      <select id="acct-bills">${opts.join('')}</select>
-      <span class="pill">本月 ${esc(v.month || '')} · 近 30 天 ${esc((v.window || []).join(' ~ '))}</span>
-    </div>
-    <div class="grid g4" style="margin-bottom:14px">
-      <div class="tile bad"><div class="v">${money(v.month_expense)}</div><div class="k">本月支出</div></div>
-      <div class="tile accent"><div class="v">${money(v.expense)}</div><div class="k">近 30 天支出</div><div class="d">日均 ${money(v.avg_day)}</div></div>
-      <div class="tile ok"><div class="v">${money(v.income)}</div><div class="k">近 30 天收入</div></div>
-      <div class="tile"><div class="v">${n0(v.count)}</div><div class="k">笔数</div><div class="d">共 ${n0(v.all_count)} 笔 · 排除 ${n0(v.excluded_count)}</div></div>
-    </div>
-    <div class="grid g2" style="margin-bottom:14px">
-      <div class="card card-pad" style="grid-column:1/-1">
-        <div class="card-title">每日支出 <span class="hint">近 30 天</span></div>
-        ${chartBars(days.map((d) => mmdd(d.date)), days.map((d) => d.expense || 0), { height: 210, yFmt: (v2) => '¥' + n0(v2) })}
-      </div>
-      <div class="card card-pad">
-        <div class="card-title">分类占比</div>
-        <div class="bars">
-          ${cats.map(([name, amt]) => `<div class="bar-row"><span>${esc(name)}</span><div class="bar-track"><div class="bar-fill" style="width:${(amt / maxCat * 100).toFixed(0)}%"></div></div><span class="n">${money(amt)}</span></div>`).join('') || '<div class="empty">暂无支出</div>'}
-        </div>
-      </div>
-      <div class="card card-pad">
-        <div class="card-title">说明</div>
-        <div style="font-size:12.5px;color:var(--muted);line-height:1.9">
-          <div>· 账户：${accounts.map((a) => esc(a.name || a.id)).join('、')}</div>
-          <div>· 网页版只读，改分类/备注/排除请在桌面 hub 操作</div>
-          <div>· 统计口径与 hub 一致：排除标记的笔数不计入</div>
-        </div>
-      </div>
-    </div>
-    <div class="card card-pad">
-      <div class="card-title">明细 <span class="hint">最近 ${txns.length} 笔（共 ${n0((v.txns || []).length)}）</span></div>
-      <div class="table-wrap">
-        <table class="data">
-          <thead><tr><th>时间</th><th>对方</th><th class="hide-sm">商品</th><th>分类</th><th class="hide-sm">账户</th><th class="num">金额</th></tr></thead>
-          <tbody>${txns.map((t) => `<tr style="${t.excluded ? 'opacity:.45' : ''}">
-            <td>${esc((t.time || t.date || '').slice(0, 16))}</td>
-            <td class="title">${esc(t.counterparty_name || t.counterparty || '')}</td>
-            <td class="title hide-sm">${esc(t.item || '')}</td>
-            <td><span class="tag">${esc(t.category || '其他')}</span></td>
-            <td class="hide-sm">${esc(t.account_name || '')}</td>
-            <td class="num" style="color:${t.direction === 'income' ? 'var(--ok)' : 'var(--text)'}">${t.direction === 'income' ? '+' : '-'}${money(t.amount)}</td>
-          </tr>`).join('')}</tbody>
-        </table>
-      </div>
-    </div>`;
-
-  return { sub: `${accounts.length} 个账户 · 只读`, html,
-    mount() { $('#acct-bills')?.addEventListener('change', (e) => { state.sel.bills = e.target.value; render(); }); } };
-}
-
-/* ------------------------------------------------------------ 刷题 */
-function quizSubjects() {
-  return state.data.quiz?.subjects || [];
-}
-
-function pageQuiz() {
-  const subjects = quizSubjects();
-  if (!subjects.length) return { html: `<div class="card"><div class="empty">还没有题库</div></div>` };
-
-  if (state.quiz && state.quiz.finished) return quizResultHtml();
-
-  if (!state.quiz) {
-    const html = `
-      <div class="card card-pad quiz-shell">
-        <div class="card-title">选一组题开始</div>
-        <div class="quiz-setup">
-          <select id="q-subject">${subjects.map((s) => `<option value="${escAttr(s.subject)}">${esc(s.subject)}（${s.total} 题 · 错 ${s.wrong}）</option>`).join('')}</select>
-          <select id="q-mode">
-            <option value="all">全部题目</option>
-            <option value="wrong">只刷错题</option>
-            <option value="due">到期复习</option>
-          </select>
-          <select id="q-count"><option>10</option><option>20</option><option>30</option><option>50</option></select>
-          <button class="btn primary" id="q-start">开始</button>
-        </div>
-        <div style="margin-top:18px;color:var(--muted);font-size:12.5px;line-height:1.9">
-          ${window.HubAndroid
-            ? '· 答对答错都会写回手机本地的 <code>notes/kb/&lt;科目&gt;/review.json</code><br>· 点顶部的 ☁ 同步时，会先提交这次进度，再拉取最新笔记与数据'
-            : '· 答对答错都会写回 <code>notes/kb/&lt;科目&gt;/review.json</code>，和桌面 hub、study.py 共用进度<br>· 静态快照模式下进度只存在当前浏览器（localStorage），不写仓库'}
-        </div>
-      </div>
-      <div class="card card-pad quiz-shell" style="margin-top:14px">
-        <div class="card-title">各科目进度</div>
-        ${subjects.map((s) => `<div class="bar-row" style="grid-template-columns:90px 1fr 120px;margin-bottom:10px">
-          <span>${esc(s.subject)}</span>
-          <div class="bar-track"><div class="bar-fill" style="width:${s.total ? (s.seen / s.total * 100).toFixed(0) : 0}%"></div></div>
-          <span class="n">${s.seen}/${s.total} · 错 ${s.wrong}</span>
-        </div>`).join('')}
-      </div>`;
-    return { sub: '选择题即时判分', html, mount() { $('#q-start')?.addEventListener('click', startQuiz); } };
-  }
-
-  const q = state.quiz.pool[state.quiz.idx];
-  if (!q) return quizResultHtml();
-  const answered = state.quiz.answers[q.id];
-  const opts = Object.entries(q.options || {});
-  const html = `
-    <div class="card q-card quiz-shell">
-      <div class="q-meta">
-        <span class="tag">${esc(state.quiz.subject)}</span>
-        <span class="tag">${esc(q.chapter || '未分章')}</span>
-        <span class="spacer"></span>
-        <span class="quiz-progress">${state.quiz.idx + 1} / ${state.quiz.pool.length} · 对 ${state.quiz.correct}</span>
-      </div>
-      <div class="progress-line" style="margin-bottom:16px"><i style="width:${((state.quiz.idx) / state.quiz.pool.length * 100).toFixed(1)}%"></i></div>
-      <div class="q-text">${esc(q.q)}</div>
-      ${opts.map(([k, val]) => {
-        let cls = 'opt';
-        if (answered) {
-          cls += ' locked';
-          if (k === q.answer) cls += ' right';
-          else if (k === answered.pick) cls += ' wrongpick';
-          else cls += ' dim';
-        }
-        return `<div class="${cls}" data-pick="${escAttr(k)}"><span class="idx">${esc(k)}</span><span>${esc(val)}</span></div>`;
-      }).join('')}
-      ${answered ? `<div class="analysis">
-        <b>${answered.ok ? '答对了' : '答错了'} · 正确答案 ${esc(q.answer)}</b>
-        <div style="margin-top:6px;white-space:pre-wrap">${esc(q.analysis || '（这道题没有解析）')}</div>
-      </div>` : ''}
-      <div class="quiz-foot">
-        <button class="btn" id="q-quit">结束</button>
-        <span class="spacer"></span>
-        ${answered ? `<button class="btn primary" id="q-next">${state.quiz.idx + 1 >= state.quiz.pool.length ? '看结果' : '下一题 →'}</button>` : ''}
-      </div>
-    </div>`;
-  return {
-    crumb: state.quiz.subject,
-    sub: state.quiz.modeLabel,
-    html,
-    mount() {
-      document.querySelectorAll('.opt').forEach((el) => el.addEventListener('click', () => answerQuiz(el.dataset.pick)));
-      $('#q-next')?.addEventListener('click', nextQuiz);
-      $('#q-quit')?.addEventListener('click', () => { state.quiz = null; render(); });
-    },
-  };
-}
-
-function startQuiz() {
-  const subject = $('#q-subject').value;
-  const mode = $('#q-mode').value;
-  const count = Number($('#q-count').value);
-  const s = quizSubjects().find((x) => x.subject === subject);
-  if (!s) return;
-  let pool = s.questions.slice();
-  const today = new Date().toISOString().slice(0, 10);
-  if (mode === 'wrong') {
-    pool = pool.filter((q) => {
-      const st = s.review[q.id];
-      return st && st.wrong > 0 && !st.mastered;
-    });
-  } else if (mode === 'due') {
-    pool = pool.filter((q) => {
-      const st = s.review[q.id];
-      return st && st.wrong > 0 && !st.mastered && (st.due || '9999') <= today;
-    });
-  }
-  if (!pool.length) { toast(mode === 'all' ? '这个科目没有题' : '没有符合条件的题'); return; }
-  pool = pool.sort(() => Math.random() - 0.5).slice(0, Math.min(count, pool.length));
-  state.quiz = {
-    subject, mode, pool, idx: 0, correct: 0, answers: {}, finished: false,
-    modeLabel: { all: '全部题目', wrong: '只刷错题', due: '到期复习' }[mode],
-  };
-  render();
-}
-
-async function answerQuiz(pick) {
-  const qz = state.quiz;
-  if (!qz || qz.answers[qz.pool[qz.idx].id]) return;
-  const q = qz.pool[qz.idx];
-  const ok = pick === q.answer;
-  qz.answers[q.id] = { pick, ok };
-  if (ok) qz.correct++;
-
-  const subject = quizSubjects().find((s) => s.subject === qz.subject);
-  if (window.HubAndroid) {
-    try {
-      const res = JSON.parse(window.AndroidRepo.answer(qz.subject, q.id, ok));
-      if (res.ok && subject) {
-        subject.review[q.id] = res.state;
-        subject.seen = subject.questions.filter((qq) => subject.review[qq.id]).length;
-        subject.wrong = subject.questions.filter((qq) => {
-          const st = subject.review[qq.id];
-          return st && st.wrong > 0 && !st.mastered;
-        }).length;
-      }
-    } catch (e) {
-      toast('保存失败：' + e.message);
-    }
-    render();
-    return;
-  }
-  if (state.data.meta.mode === 'live') {
-    try {
-      const r = await fetch('api/answer', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subject: qz.subject, id: q.id, ok }),
-      });
-      const res = await r.json();
-      if (res.ok && subject) {
-        subject.review[q.id] = res.state;
-        if (res.subject) { subject.seen = res.subject.seen; subject.wrong = res.subject.wrong; }
-      }
-    } catch (e) { toast('写回失败，进度可能没保存'); }
-  } else {
-    const local = localReview();
-    local[qz.subject] = local[qz.subject] || {};
-    local[qz.subject][q.id] = Object.assign({}, local[qz.subject][q.id] || {}, {
-      seen: ((local[qz.subject][q.id] || {}).seen || 0) + 1,
-      wrong: ((local[qz.subject][q.id] || {}).wrong || 0) + (ok ? 0 : 1),
-      last: new Date().toISOString().slice(0, 10),
-    });
-    saveLocalReview(local);
-    if (subject) subject.review[q.id] = local[qz.subject][q.id];
-  }
-  render();
-}
-
-function nextQuiz() {
-  const qz = state.quiz;
-  if (qz.idx + 1 >= qz.pool.length) { qz.finished = true; render(); return; }
-  qz.idx++;
-  render();
-}
-
-function quizResultHtml() {
-  const qz = state.quiz;
-  const total = qz.pool.length;
-  const rate = total ? Math.round((qz.correct / total) * 100) : 0;
-  const html = `
-    <div class="card card-pad quiz-shell">
-      <div class="card-title">这一组做完了</div>
-      <div class="grid g3">
-        <div class="tile ok"><div class="v">${qz.correct}</div><div class="k">答对</div></div>
-        <div class="tile bad"><div class="v">${total - qz.correct}</div><div class="k">答错</div></div>
-        <div class="tile accent"><div class="v">${rate}%</div><div class="k">正确率</div></div>
-      </div>
-      <div class="quiz-foot">
-        <button class="btn" id="q-again">再选一组</button>
-        <span class="spacer"></span>
-        <button class="btn primary" id="q-stats">看统计</button>
-      </div>
-    </div>`;
-  return {
-    crumb: qz.subject,
-    html,
-    mount() {
-      $('#q-again')?.addEventListener('click', () => { state.quiz = null; render(); });
-      $('#q-stats')?.addEventListener('click', () => { state.quiz = null; go('stats'); });
-    },
-  };
-}
-
-/* ------------------------------------------------------------ 统计 */
-function pageStats() {
-  const subjects = quizSubjects();
-  if (!subjects.length) return { html: `<div class="card"><div class="empty">还没有题库</div></div>` };
-  const totalQ = subjects.reduce((a, s) => a + s.total, 0);
-  const totalSeen = subjects.reduce((a, s) => a + s.seen, 0);
-  const totalWrong = subjects.reduce((a, s) => a + s.wrong, 0);
-  const totalMastered = subjects.reduce((a, s) => a + (s.mastered || 0), 0);
-
-  const html = `
-    <div class="grid g4" style="margin-bottom:14px">
-      <div class="tile accent"><div class="v">${totalQ}</div><div class="k">题目总数</div></div>
-      <div class="tile"><div class="v">${totalSeen}</div><div class="k">练过</div><div class="d">${totalQ ? Math.round(totalSeen / totalQ * 100) : 0}% 覆盖</div></div>
-      <div class="tile ok"><div class="v">${totalMastered}</div><div class="k">已掌握</div></div>
-      <div class="tile bad"><div class="v">${totalWrong}</div><div class="k">待攻克错题</div></div>
-    </div>
-    <div class="card card-pad">
-      <div class="card-title">按科目 <span class="hint">练过 = 至少答过一次</span></div>
-      <div class="table-wrap">
-        <table class="data">
-          <thead><tr><th>科目</th><th class="num">题目</th><th class="num">练过</th><th class="num">掌握</th><th class="num">错题</th><th style="width:200px">覆盖</th></tr></thead>
-          <tbody>${subjects.map((s) => `<tr>
-            <td>${esc(s.subject)}</td>
-            <td class="num">${s.total}</td>
-            <td class="num">${s.seen}</td>
-            <td class="num">${s.mastered || 0}</td>
-            <td class="num" style="color:${s.wrong ? 'var(--bad)' : 'inherit'}">${s.wrong}</td>
-            <td><div class="progress-line"><i style="width:${s.total ? (s.seen / s.total * 100).toFixed(0) : 0}%"></i></div></td>
-          </tr>`).join('')}</tbody>
-        </table>
-      </div>
-    </div>`;
-  return { sub: '刷题进度与桌面 hub 共用同一份 review.json', html };
-}
-
 /* ------------------------------------------------------------ 启动 */
 function bindGlobal() {
   document.addEventListener('click', (e) => {
@@ -1162,7 +409,7 @@ async function boot() {
     setChrome('出错了', '');
     return;
   }
-  if (!location.hash) location.hash = '#/home';
+  if (!location.hash) location.hash = '#/douyin';
   render();
 }
 

@@ -6,11 +6,8 @@ import org.json.JSONObject;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -18,13 +15,13 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * 直接跟 GitHub 仓库同步（不用电脑、不用装 git）。
+ * 直接从 GitHub 仓库拉取数据（不用电脑、不用装 git）。
  *
- * 拉取：GET git/trees/<分支>?recursive=1 → 只挑 notes/ 与 data/hub/ 下的文本文件 → 逐个 GET git/blobs。
- * 推送：本机改动（review.json）通过 contents API 提交成一次 commit。
+ * 拉取：GET git/trees/<分支>?recursive=1 → 只挑 data/hub/ 下的 JSON → 逐个 GET git/blobs。
+ * 只读：手机端不改远程数据，登录/同步/导入仍在桌面 hub 做。
  *
  * 为什么不用真的 git 协议：手机上没有 git 二进制，JGit 会让 APK 多 4MB 且 github.com 的 HTTPS
- * 在国内经常被重置；api.github.com 实测可用，效果一样是「拉最新 commit / 提交新 commit」。
+ * 在国内经常被重置；api.github.com 实测可用。
  */
 public class GitHubClient {
 
@@ -61,7 +58,7 @@ public class GitHubClient {
             String path = e.optString("path");
             if (wantedPath(path)) wanted.put(path, e.optString("sha"));
         }
-        if (wanted.isEmpty()) throw new IOException("仓库里没有 notes/ 或 data/hub/ 数据");
+        if (wanted.isEmpty()) throw new IOException("仓库里没有 data/hub/ 数据");
 
         int i = 0;
         Set<String> keep = new HashSet<>();
@@ -78,87 +75,29 @@ public class GitHubClient {
         return wanted.size();
     }
 
-    public void push(SyncStore store, Progress progress) throws Exception {
-        Set<String> dirty = store.dirty();
-        if (dirty.isEmpty()) {
-            progress.onProgress("没有要推送的改动");
-            return;
-        }
-        for (String path : dirty) {
-            byte[] data = store.read(path);
-            if (data == null) continue;
-            String sha = null;
-            try {
-                JSONObject cur = new JSONObject(get("/repos/" + repo + "/contents/" + encodePath(path)
-                        + "?ref=" + branch));
-                sha = cur.optString("sha");
-            } catch (IOException notFound) {
-                // 新文件
-            }
-            JSONObject body = new JSONObject();
-            body.put("message", "android: 更新 " + path);
-            body.put("content", Base64.getEncoder().encodeToString(data));
-            body.put("branch", branch);
-            if (sha != null && !sha.isEmpty()) body.put("sha", sha);
-            put("/repos/" + repo + "/contents/" + encodePath(path), body.toString());
-            progress.onProgress("已推送 " + path);
-        }
-        store.clearDirty();
-    }
-
-    /** 先推本地改动，再拉远程（避免 pull 覆盖没上传的复习进度）。 */
-    public void sync(SyncStore store, Progress progress) throws Exception {
-        push(store, progress);
-        pull(store, progress);
-    }
-
     // ------------------------------------------------------------ 工具
     static boolean wantedPath(String path) {
-        if (path == null) return false;
-        if (path.startsWith("notes/")) {
-            return path.endsWith(".md") || path.endsWith(".json") || path.endsWith(".jsonl");
+        if (path == null || !path.startsWith("data/hub/") || !path.endsWith(".json")) {
+            return false;
         }
-        if (path.startsWith("data/hub/") && path.endsWith(".json")) {
-            if (path.contains("/auth.")) return false;
-            if (path.endsWith("sync.json") || path.endsWith("mail.json")) return false;
-            return true;
-        }
-        return false;
-    }
-
-    private static String encodePath(String path) throws Exception {
-        StringBuilder sb = new StringBuilder();
-        for (String part : path.split("/")) {
-            if (sb.length() > 0) sb.append('/');
-            sb.append(URLEncoder.encode(part, "UTF-8").replace("+", "%20"));
-        }
-        return sb.toString();
+        if (path.contains("/auth.")) return false;
+        if (path.endsWith("sync.json") || path.endsWith("mail.json")) return false;
+        return true;
     }
 
     private String get(String path) throws IOException {
-        return request("GET", path, null);
+        return request("GET", path);
     }
 
-    private String put(String path, String body) throws IOException {
-        return request("PUT", path, body);
-    }
-
-    private String request(String method, String path, String body) throws IOException {
+    private String request(String method, String path) throws IOException {
         HttpURLConnection c = (HttpURLConnection) new URL(api + path).openConnection();
         c.setRequestMethod(method);
         c.setConnectTimeout(15000);
         c.setReadTimeout(30000);
         c.setRequestProperty("Accept", "application/vnd.github+json");
         c.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
-        c.setRequestProperty("User-Agent", "second-brain-android");
+        c.setRequestProperty("User-Agent", "ai-mind-android");
         if (!token.isEmpty()) c.setRequestProperty("Authorization", "Bearer " + token);
-        if (body != null) {
-            c.setDoOutput(true);
-            c.setRequestProperty("Content-Type", "application/json; charset=utf-8");
-            try (OutputStream out = c.getOutputStream()) {
-                out.write(body.getBytes(StandardCharsets.UTF_8));
-            }
-        }
         int code = c.getResponseCode();
         InputStream in = code >= 400 ? c.getErrorStream() : c.getInputStream();
         String text = readAll(in);

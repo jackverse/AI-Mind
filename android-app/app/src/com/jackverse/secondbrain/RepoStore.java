@@ -12,26 +12,22 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 /**
- * 手机上的「仓库副本」：只存 notes/ 与 data/hub/ 的文本文件。
+ * 手机上的「仓库副本」：只存 data/hub/ 下的账号与作品数据。
  * 首次启动从 APK 里的 seed 复制一份，之后由 GitHub 同步覆盖。
  */
 public class RepoStore implements SyncStore {
 
     private final Context ctx;
     private final File root;
-    private final File dirtyFile;
 
     public RepoStore(Context ctx) {
         this.ctx = ctx;
         this.root = new File(ctx.getFilesDir(), "repo");
-        this.dirtyFile = new File(ctx.getFilesDir(), "dirty.txt");
     }
 
     public File root() {
@@ -40,7 +36,7 @@ public class RepoStore implements SyncStore {
 
     // ------------------------------------------------------------ 种子数据
     public void ensureSeed() {
-        if (new File(root, "notes").isDirectory()) return;
+        if (new File(root, "data").isDirectory()) return;
         try {
             unzipSeed();
         } catch (IOException ignored) {
@@ -113,52 +109,7 @@ public class RepoStore implements SyncStore {
     }
 
     static boolean wanted(String rel) {
-        if (rel.startsWith("notes/")) {
-            return rel.endsWith(".md") || rel.endsWith(".json") || rel.endsWith(".jsonl");
-        }
         return rel.startsWith("data/hub/") && rel.endsWith(".json");
-    }
-
-    // ------------------------------------------------------------ 刷题写回
-    public String answer(String subject, String qid, boolean ok) {
-        String rel = "notes/kb/" + subject + "/review.json";
-        JSONObject review = new JSONObject();
-        try {
-            byte[] raw = read(rel);
-            if (raw != null) review = new JSONObject(new String(raw, StandardCharsets.UTF_8));
-        } catch (Exception ignored) {
-        }
-        JSONObject st = review.optJSONObject(qid);
-        if (st == null) st = new JSONObject();
-        try {
-            String today = LocalDate.now().toString();
-            st.put("seen", st.optInt("seen") + 1);
-            st.put("last", today);
-            if (ok) {
-                int streak = st.optInt("streak") + 1;
-                st.put("streak", streak);
-                if (st.optInt("wrong") > 0 && !st.optBoolean("mastered")) {
-                    if (streak >= 2) st.put("mastered", true);
-                    else st.put("due", LocalDate.now().plusDays(3).toString());
-                }
-            } else {
-                st.put("wrong", st.optInt("wrong") + 1);
-                st.put("streak", 0);
-                st.put("mastered", false);
-                st.put("due", LocalDate.now().plusDays(1).toString());
-            }
-            review.put(qid, st);
-            write(rel, review.toString(1).getBytes(StandardCharsets.UTF_8));
-            markDirty(rel);
-        } catch (Exception ignored) {
-        }
-        JSONObject res = new JSONObject();
-        try {
-            res.put("ok", true);
-            res.put("state", st);
-        } catch (Exception ignored) {
-        }
-        return res.toString();
     }
 
     // ------------------------------------------------------------ SyncStore
@@ -198,7 +149,6 @@ public class RepoStore implements SyncStore {
     @Override
     public void prune(Set<String> keep) throws IOException {
         List<File> all = new ArrayList<>();
-        collect(new File(root, "notes"), all);
         collect(new File(root, "data/hub"), all);
         String base = root.getPath() + File.separator;
         for (File f : all) {
@@ -216,41 +166,6 @@ public class RepoStore implements SyncStore {
         for (File f : list) {
             if (f.isDirectory()) collect(f, out);
             else out.add(f);
-        }
-    }
-
-    @Override
-    public Set<String> dirty() {
-        Set<String> set = new HashSet<>();
-        if (!dirtyFile.isFile()) return set;
-        try (InputStream in = new FileInputStream(dirtyFile)) {
-            byte[] b = new byte[(int) dirtyFile.length()];
-            int n = in.read(b);
-            if (n > 0) {
-                for (String line : new String(b, 0, n, StandardCharsets.UTF_8).split("\n")) {
-                    if (!line.trim().isEmpty()) set.add(line.trim());
-                }
-            }
-        } catch (IOException ignored) {
-        }
-        return set;
-    }
-
-    public void markDirty(String path) {
-        Set<String> set = dirty();
-        if (set.add(path)) saveDirty(set);
-    }
-
-    @Override
-    public void clearDirty() throws IOException {
-        //noinspection ResultOfMethodCallIgnored
-        dirtyFile.delete();
-    }
-
-    private void saveDirty(Set<String> set) {
-        try (OutputStream out = new FileOutputStream(dirtyFile)) {
-            out.write(String.join("\n", set).getBytes(StandardCharsets.UTF_8));
-        } catch (IOException ignored) {
         }
     }
 }

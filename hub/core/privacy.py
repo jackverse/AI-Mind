@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""隐私模式：账号昵称 / 抖音号 / 小红书号 / 手机号 / 邮箱 / 公积金余额 脱敏展示。
+"""隐私模式：账号昵称 / 抖音号 / 小红书号 / 手机号 / 邮箱 脱敏展示。
 
 **只改显示，不动数据**：`data/hub` 里的 json 仍是明文，关掉开关立刻恢复原样。
 所以截图/投屏前先看一眼侧栏底部的开关是不是「开」。
@@ -13,17 +13,17 @@
 | 手机号 | 13800138000 | 138****8000 |
 | 邮箱 | example@example.com | ex***@example.com |
 | 未知文本里的 8 位以上数字 | 12345678 | 123***78 |
-| 公积金 / 补充余额（买房页） | 10000 | ¥•••• |
 
-设置按机器分片存 `data/hub/privacy.<机器>.json`（跟浏览统计一样每台一片），
+设置按机器分片存 `data/hub/privacy.<机器>.json`，
 **默认开启**：第一次打开 hub 就是脱敏状态，自己要用明文点一下侧栏底部即可。
 """
 import json
 import os
 import re
+import socket
 from datetime import datetime
 
-from . import paths, usage
+from . import paths
 
 _KEY = "enabled"
 
@@ -33,9 +33,16 @@ _DIGITS_RE = re.compile(r"(?<!\d)\d{8,}(?!\d)")
 
 
 # ---------------------------------------------------------------- 设置
+def host_id():
+    """本机标识：COMPUTERNAME（Windows）/ hostname，清洗成文件名安全的形式。"""
+    raw = os.environ.get("COMPUTERNAME") or socket.gethostname() or "local"
+    clean = re.sub(r"[^A-Za-z0-9_.-]", "_", raw).strip("._")
+    return (clean or "local")[:40]
+
+
 def store_path():
     """本机分片：隐私开关是「这台机器当前要不要遮」，不跨机同步。"""
-    return paths.data_dir("hub") / f"privacy.{usage.host_id()}.json"
+    return paths.data_dir("hub") / f"privacy.{host_id()}.json"
 
 
 def load():
