@@ -16,8 +16,10 @@ AI-Mind/
 
 ## 下载 v0.0.1
 
-- **Windows 桌面端**：[hub-v0.0.1-win64.zip](releases/v0.0.1/hub-v0.0.1-win64.zip)（解压后运行 `hub\hub.exe`）
-- **Android**：[hub-android-v0.0.1.apk](releases/v0.0.1/hub-android-v0.0.1.apk)（无内置数据，首次打开后在 ⚙ 填仓库和 Token）
+- **Windows 桌面端**：[hub-v0.0.1-win64.zip](https://github.com/jackverse/AI-Mind/releases/download/v0.0.1/hub-v0.0.1-win64.zip)（解压后运行 `hub\hub.exe`）
+- **Android**：[hub-android-v0.0.1.apk](https://github.com/jackverse/AI-Mind/releases/download/v0.0.1/hub-android-v0.0.1.apk)（无内置数据，首次打开后在 ⚙ 填仓库和 Token）
+
+完整发布页：[Releases · v0.0.1](https://github.com/jackverse/AI-Mind/releases/tag/v0.0.1)
 
 ## 快速开始
 
