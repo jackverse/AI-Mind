@@ -14,6 +14,11 @@ AI-Mind/
 └─ README.md
 ```
 
+## 下载 v1.0.0
+
+- **Windows 桌面端**：[hub-v1.0.0-win64.zip](releases/v1.0.0/hub-v1.0.0-win64.zip)（解压后运行 `hub\hub.exe`）
+- **Android**：[hub-android-v1.0.0.apk](releases/v1.0.0/hub-android-v1.0.0.apk)（无内置数据，首次打开后在 ⚙ 填仓库和 Token）
+
 ## 快速开始
 
 要求：Windows、Python 3.10+（自带 tkinter）。

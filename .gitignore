@@ -20,6 +20,10 @@ __pycache__/
 *.idsig
 android-app/build/
 
+# 发版产物：只允许 releases/ 下的安装包与压缩包
+!/releases/
+!/releases/**
+
 # 导出的网页快照（含完整数据）
 /hub-web/web/data/
 
