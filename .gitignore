@@ -1,0 +1,36 @@
+# ===== 数据：任何个人数据都不进这个仓库 =====
+/notes/
+/data/
+/tmp/
+*.xlsx
+*.csv
+*.zip
+!tools/**/*.zip
+
+# ===== 构建产物 =====
+/.build/
+/.release-tmp/
+/hub.exe
+/.hub/
+__pycache__/
+*.py[cod]
+*.spec
+*.apk
+*.idsig
+tools/android-app/build/
+tools/android-app/build-watch/
+
+# hub-web 导出的静态快照（含完整数据）
+tools/hub-web/web/data/
+
+# ===== 登录态 / 密钥 / 邮件授权，绝不入库 =====
+auth.*.json
+sync.key
+mail.json
+*.log
+chrome-last.log
+
+# ===== 系统垃圾 =====
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 手表版清单：与手机同一套代码，只换包名/名字/主题/首屏资源（OPPO Watch X2 等圆屏）。
+     包名必须是 com.jackverse.secondbrain.watch —— 否则和手机版撞车，自动更新会互相覆盖。
+     版本号不写在这里（同手机版清单的原因：会和 aapt2 注入的版本号打架）。
+     构建：tools\android-app\build.ps1 -Watch -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.jackverse.secondbrain.watch">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
+    <!-- 手表不一定有触摸外的硬件，别声明必需特性，免得商店/侧载判断不兼容 -->
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+
+    <application
+        android:label="@string/app_name_watch"
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:supportsRtl="true"
+        android:usesCleartextTraffic="true"
+        android:theme="@style/WatchTheme">
+
+        <activity
+            android:name="com.jackverse.secondbrain.MainActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- 与手机版同一份 Java：登录页也要声明，否则表上点「登录新账号」会闪退 -->
+        <activity
+            android:name="com.jackverse.secondbrain.DouyinLoginActivity"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
+            android:windowSoftInputMode="adjustResize" />
+
+        <provider
+            android:name="com.jackverse.secondbrain.ApkProvider"
+            android:authorities="com.jackverse.secondbrain.watch.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+</manifest>

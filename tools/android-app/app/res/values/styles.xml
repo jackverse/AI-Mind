@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">#1A202B</item>
+        <item name="android:navigationBarColor">#FFFFFF</item>
+        <item name="android:windowBackground">#F4F6FA</item>
+    </style>
+
+    <!-- 手表版：全黑底（OLED 省电），无状态栏/导航栏色块 -->
+    <style name="WatchTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#0B0F16</item>
+        <item name="android:statusBarColor">#0B0F16</item>
+        <item name="android:navigationBarColor">#0B0F16</item>
+        <item name="android:colorBackground">#0B0F16</item>
+    </style>
+</resources>
