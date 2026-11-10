@@ -1,4 +1,4 @@
-# 一次发版：递增版本 → 重建 exe + 手机 APK（无 seed）→ 打 tag → 同时推 GitHub / Gitee
+﻿# 一次发版：递增版本 → 重建 exe + 手机 APK（无 seed）→ 打 tag → 同时推 GitHub / Gitee
 # → 两个仓库各建 Release，上传 hub-vX-win64.zip + hub-android.apk + version.json
 #
 # 用法：
@@ -207,7 +207,7 @@ if (-not $GiteeToken) {
         --data-urlencode "body@$bodyFile"
     try { $grel = $resp | ConvertFrom-Json } catch { Fail "Gitee 返回不是 JSON：$resp" }
     if (-not $grel.id) { Fail "建 Gitee Release 失败：$resp" }
-    Ok "Gitee Release：$($grel.html_url)"
+    Ok "Gitee Release：https://gitee.com/$giteeSlug/releases/tag/$tag"
 
     foreach ($f in $files) {
         $r = & curl.exe -s -X POST "https://gitee.com/api/v5/repos/$giteeSlug/releases/$($grel.id)/attach_files" `
@@ -215,10 +215,19 @@ if (-not $GiteeToken) {
         if ($LASTEXITCODE -ne 0) { Fail "Gitee 上传 $($f.n) 失败" }
         Info "Gitee 已上传 $($f.n)"
     }
-    $check = Invoke-RestMethod -Uri "https://gitee.com/api/v5/repos/$giteeSlug/releases/$($grel.id)?access_token=$GiteeToken"
-    $got = @($check.assets | ForEach-Object { $_.name })
-    foreach ($f in $files) { if ($got -notcontains $f.n) { Fail "Gitee 资产缺失：$($f.n)" } }
-    Ok 'Gitee 资产齐全'
+    # 附件是最终一致的：轮询到三个都在，再断言
+    $want = @($files | ForEach-Object { $_.n })
+    $got = @()
+    $missing = $want
+    for ($i = 0; $i -lt 10; $i++) {
+        Start-Sleep -Milliseconds 900
+        $check = Invoke-RestMethod -Uri "https://gitee.com/api/v5/repos/$giteeSlug/releases/$($grel.id)?access_token=$GiteeToken"
+        $got = @($check.assets | ForEach-Object { $_.name } | Where-Object { $want -contains $_ })
+        $missing = @($want | Where-Object { $got -notcontains $_ })
+        if ($missing.Count -eq 0) { break }
+    }
+    if ($missing.Count -gt 0) { Fail "Gitee 资产缺失：$($missing -join '、')" }
+    Ok "Gitee 资产齐全：$($got -join '、')"
 }
 
 Remove-Item $tmp -Recurse -Force

@@ -82,7 +82,7 @@ if (-not $relId) {
     try { $rel = $resp | ConvertFrom-Json } catch { Fail "Gitee 返回不是 JSON：$resp" }
     if (-not $rel.id) { Fail "建 Gitee Release 失败：$resp" }
     $relId = $rel.id
-    Ok "Gitee Release：$($rel.html_url)"
+    Ok "Gitee Release：https://gitee.com/$giteeSlug/releases/tag/$tag"
 }
 
 $files = @(
@@ -104,9 +104,18 @@ foreach ($f in $files) {
     Info "已上传 $($f.n)"
 }
 
-$check = (& curl.exe -s "https://gitee.com/api/v5/repos/$giteeSlug/releases/$relId?access_token=$GiteeToken") | ConvertFrom-Json
-$got = @($check.assets | ForEach-Object { $_.name })
-foreach ($f in $files) { if ($got -notcontains $f.n) { Fail "Gitee 资产缺失：$($f.n)" } }
+# Gitee 的 attachments 是最终一致的：刚传完查详情可能还是空的，轮询几次再断言
+$want = @($files | ForEach-Object { $_.n })
+$got = @()
+$missing = $want
+for ($i = 0; $i -lt 10; $i++) {
+    Start-Sleep -Milliseconds 900
+    $check = (& curl.exe -s "https://gitee.com/api/v5/repos/$giteeSlug/releases/$relId?access_token=$GiteeToken") | ConvertFrom-Json
+    $got = @($check.assets | ForEach-Object { $_.name } | Where-Object { $want -contains $_ })
+    $missing = @($want | Where-Object { $got -notcontains $_ })
+    if ($missing.Count -eq 0) { break }
+}
+if ($missing.Count -gt 0) { Fail "Gitee 资产缺失：$($missing -join '、')" }
 Ok "Gitee 资产齐全：$($got -join '、')"
 Remove-Item $tmp -Recurse -Force
 Write-Host "  https://gitee.com/$giteeSlug/releases/tag/$tag"
