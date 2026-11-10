@@ -1,4 +1,4 @@
-﻿# 打 Android APK（不依赖 Gradle，只用 SDK 自带的 aapt2 / javac / d8 / apksigner）
+# 打 Android APK（不依赖 Gradle，只用 SDK 自带的 aapt2 / javac / d8 / apksigner）
 # 用法：powershell -ExecutionPolicy Bypass -File tools\android-app\build.ps1
 #       powershell -ExecutionPolicy Bypass -File tools\android-app\build.ps1 -Watch   # OPPO Watch 版
 # 发版别直接调这个：走 tools\release.ps1，它会自动递增 versionCode（覆盖同名 release 会让 APK 收不到更新）
