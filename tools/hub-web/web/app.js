@@ -1589,14 +1589,6 @@ function meRows(st) {
     ? '<span class="me-row-s ok">已允许安装应用</span>'
     : '<span class="me-row-s bad">未允许 · 更新时系统会拦一下</span>';
   return `
-    <div class="me-row" data-me="settings">
-      <span class="me-row-ico">⚙</span>
-      <div class="me-row-main">
-        <div class="me-row-t">同步设置</div>
-        <div class="me-row-s">${esc(st.repo || '未配置')} · ${esc(st.branch || 'main')} · Token · ${st.autoUpdate ? '自动检查更新已开' : '自动检查更新已关'}</div>
-      </div>
-      <span class="me-row-go">›</span>
-    </div>
     <div class="me-row" data-me="install">
       <span class="me-row-ico">⤓</span>
       <div class="me-row-main"><div class="me-row-t">安装权限</div>${install}</div>
@@ -1622,7 +1614,7 @@ function meRows(st) {
       <span class="me-row-ico">⬆</span>
       <div class="me-row-main">
         <div class="me-row-t">检查更新</div>
-        <div class="me-row-s">当前 v${esc(st.versionName || '—')}${st.lastCheck ? ' · 上次 ' + esc(meClock(st.lastCheck)) : ''}</div>
+        <div class="me-row-s">当前 v${esc(st.versionName || '—')} · 更新源 Gitee 主 / GitHub 备${st.lastCheck ? ' · 上次 ' + esc(meClock(st.lastCheck)) : ''}</div>
       </div>
       <span class="me-row-go">›</span>
     </div>`;
@@ -1671,6 +1663,8 @@ function bindMe() {
   if (upd) upd.addEventListener('click', () => AndroidRepo.checkUpdate());
   const set = $('#me-settings');
   if (set) set.addEventListener('click', () => AndroidRepo.openSettings());
+  const dc = $('#me-dc-config');
+  if (dc) dc.addEventListener('click', () => AndroidRepo.openSettings());
 
   const contact = $('#me-contact');
   if (contact) contact.addEventListener('click', () => {
@@ -1728,6 +1722,18 @@ function pageMe() {
           <button class="btn" id="me-update">⬆ 检查更新</button>
           <button class="btn" id="me-settings">⚙ 设置</button>
         </div>
+      </div>
+      <div class="card card-pad me-dc">
+        <div class="card-title"><span>数据中心 <span class="hint">抖音数据只存这里</span></span>
+          <button class="btn primary" id="me-dc-config">配置</button></div>
+        <div class="me-dc-main">
+          <span class="me-dc-badge">Gitee</span>
+          <div class="me-dc-text">
+            <b>${esc(st.repo || '还没有配置私有仓库')}</b>
+            <span class="hint">${st.tokenSet ? '令牌已加密保存' : '还没有填令牌'} · 分支 ${esc(st.branch || 'master')}</span>
+          </div>
+        </div>
+        <div class="me-dc-tip">必须是 <b>Gitee 私有仓库</b>；公开仓库等于把抖音数据给别人看。</div>
       </div>
       <div class="grid me-tiles" id="me-tiles">${meTiles(st)}</div>
       <div class="me-running" id="me-running" style="display:none"><i class="spinner"></i><span id="me-running-text">正在同步…</span></div>

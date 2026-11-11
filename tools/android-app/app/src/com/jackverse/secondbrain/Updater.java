@@ -28,6 +28,9 @@ import android.util.Base64;
 public class Updater {
 
     public static final String API = "https://api.github.com";
+    /** 更新源：Gitee 优先，失效再用 GitHub（两边发的是同一份）。 */
+    public static final String GITEE = "jacktianxz/ai-mind";
+    public static final String GITHUB = "jackverse/AI-Mind";
 
     public static class Info {
         public int code;
@@ -75,13 +78,27 @@ public class Updater {
      *  {"com.jackverse.secondbrain": {"versionCode":3,...},
      *   "com.jackverse.secondbrain.watch": {"versionCode":3,...}} */
     public static Info check(String repo, String branch, String token, String pkg) throws Exception {
-        String url = API + "/repos/" + repo + "/contents/version.json?ref=" + branch;
+        // ① Gitee 原始文件（公开仓库，不需要令牌）
+        try {
+            String url = "https://gitee.com/" + GITEE + "/raw/main/version.json";
+            JSONObject all = new JSONObject(text(open(url, null)));
+            Info info = parse(all, pkg, "Gitee");
+            if (info.code > 0) return info;
+        } catch (Exception ignored) {
+        }
+
+        // ② 退回 GitHub Contents API
+        String url = API + "/repos/" + GITHUB + "/contents/version.json?ref=main";
         HttpURLConnection c = open(url, token);
         JSONObject file = new JSONObject(text(c));
         String b64 = file.optString("content", "").replaceAll("\\s", "");
         if (b64.isEmpty()) throw new IOException("version.json 是空的");
         String json = new String(Base64.decode(b64, Base64.DEFAULT), "UTF-8");
-        JSONObject all = new JSONObject(json);
+        Info info = parse(new JSONObject(json), pkg, "GitHub");
+        return info;
+    }
+
+    private static Info parse(JSONObject all, String pkg, String source) throws Exception {
         JSONObject v = all.optJSONObject(pkg);
         if (v == null) throw new IOException("version.json 里没有这个包名：" + pkg);
         Info info = new Info();
@@ -93,6 +110,7 @@ public class Updater {
         // 老文件里也可能塞在包条目里，两边都认
         info.notes = all.optString("notes", v.optString("notes", ""));
         info.size = v.optLong("size", 0L);
+        info.source = source;
         return info;
     }
 
@@ -138,7 +156,23 @@ public class Updater {
 
     private static void fetch(Info info, String repo, String token, File out, Progress p)
             throws Exception {
-        String assetUrl = findAsset(repo, token, info.apk);
+        // ① Gitee Release 资产（国内直连更稳）
+        try {
+            String gu = "https://gitee.com/" + GITEE + "/releases/download/v" + info.name
+                    + "/" + info.apk;
+            HttpURLConnection gc = open(gu, null);
+            if (gc.getResponseCode() == 200) {
+                info.source = "Gitee Release";
+                saveStream(gc, out, gc.getContentLength(), p);
+                return;
+            }
+        } catch (Exception e) {
+            //noinspection ResultOfMethodCallIgnored
+            new File(out.getPath() + ".part").delete();
+        }
+
+        // ② 退回 GitHub Release
+        String assetUrl = findAsset(GITHUB, token, info.apk);
         if (assetUrl != null) {
             info.source = "Release v" + info.name;
             HttpURLConnection c = open(assetUrl, token);

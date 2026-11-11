@@ -1,10 +1,10 @@
 {
-    "notes":  "首次安装进入 App 先选功能：抖音 / 小红书默认开，可关；「我的 → 功能拓展」随时开关，关闭只隐藏入口，不影响已经同步的数据。0.x 仍为内测版。",
+    "notes":  "「我的」页重做：数据中心置顶（Gitee 私有仓库 + Android Keystore 加密令牌）、更新源 Gitee 主 / GitHub 备、功能拓展；右上角 ⚙ 移到「我的」。更新下载改用顶部灵动岛，显示「第二大脑 vX.Y.Z」不显示文件名，不挡操作。数据中心改为 Gitee，首次要在「我的 → 配置」填一次私有仓库和令牌。0.x 内测。",
     "com.jackverse.secondbrain":  {
-                                      "versionCode":  4,
-                                      "versionName":  "0.0.4",
+                                      "versionCode":  5,
+                                      "versionName":  "0.0.5",
                                       "apk":  "hub-android.apk",
-                                      "size":  128240,
-                                      "sha256":  "45831bea737417c57e398e66ba53875367dfa952919ae14d62055d9f8d18638b"
+                                      "size":  132336,
+                                      "sha256":  "14650024d4ff57f780993c938e5e8ca813f6cf4dfaa1caf71633bb105c5258cb"
                                   }
 }

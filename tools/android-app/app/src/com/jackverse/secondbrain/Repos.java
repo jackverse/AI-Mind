@@ -5,19 +5,18 @@ package com.jackverse.secondbrain;
  *
  * 认得的写法（大小写都不计较）：
  *   owner/repo
+ *   https://gitee.com/owner/repo
  *   https://github.com/owner/repo
- *   http://www.github.com/owner/repo/
- *   https://github.com/owner/repo.git
- *   https://github.com/owner/repo/tree/main/notes   （多余的路径丢掉）
- *   https://api.github.com/repos/owner/repo
- *   git@github.com:owner/repo.git
+ *   https://gitee.com/owner/repo.git
+ *   https://gitee.com/owner/repo/tree/master/data   （多余的路径丢掉）
+ *   git@gitee.com:owner/repo.git
  *
  * 解析不出来返回空串，调用方保留原值并提示。
  */
 public final class Repos {
 
-    /** 默认「数据仓库」：只是占位，第一次用请在 ⚙ 里换成自己的 notes/data 仓库。 */
-    public static final String DEFAULT = "jackverse/AI-Mind";
+    /** 数据仓库默认留空：必须由用户填自己的 Gitee 私有仓库。 */
+    public static final String DEFAULT = "";
 
     /** 自动更新固定走公开仓库，跟用户自己的数据仓库分开。 */
     public static final String UPDATE = "jackverse/AI-Mind";
@@ -33,10 +32,10 @@ public final class Repos {
 
         s = s.replaceAll("^[A-Za-z][A-Za-z0-9+.-]*://", "");   // https://
         s = s.replaceAll("^[^@/]*@", "");                        // git@
-        s = s.replace(':', '/');                                 // git@github.com:o/r → github.com/o/r
+        s = s.replace(':', '/');                                 // git@gitee.com:o/r → gitee.com/o/r
         s = s.replace('\\', '/');
         s = s.replaceAll("[?#].*$", "");                         // ?ref= / #readme
-        s = s.replaceAll("^(?i)(www\\.)?(api\\.)?github\\.com/+", "");   // 主机
+        s = s.replaceAll("^(?i)(www\\.)?(api\\.)?(gitee|github)\\.com/+", "");   // 主机
         s = s.replaceAll("^(?i)repos/+", "");                    // api.github.com/repos/o/r
         s = s.replaceAll("(?i)\\.git$", "");
         s = s.replaceAll("/+$", "");
@@ -53,9 +52,9 @@ public final class Repos {
         return s.matches("[A-Za-z0-9._-]+");
     }
 
-    /** 展示用完整地址。 */
+    /** 展示用完整地址（Gitee 优先）。 */
     public static String webUrl(String repo) {
         String r = normalize(repo);
-        return r.isEmpty() ? "" : "https://github.com/" + r;
+        return r.isEmpty() ? "" : "https://gitee.com/" + r;
     }
 }

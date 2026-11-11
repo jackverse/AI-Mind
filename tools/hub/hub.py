@@ -28,7 +28,7 @@ from core import features, modules, privacy, usage
 from core.paths import Ctx
 
 APP_TITLE = "第二大脑"
-VERSION = "0.0.4"
+VERSION = "0.0.5"
 
 # ---------------------------------------------------------------- 导航配置
 # 键 -> (图标, 显示名, 副标题, 页面模块, 权重)

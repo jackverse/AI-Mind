@@ -49,6 +49,7 @@ public class MainActivity extends Activity {
     private WebView web;
     private SharedPreferences prefs;
     private RepoStore store;
+    private TokenStore tokens;
     private View splash;
     private boolean syncing = false;
     private boolean douyinSyncing = false;
@@ -69,6 +70,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         prefs = getSharedPreferences("second-brain", MODE_PRIVATE);
+        tokens = new TokenStore(prefs);
         store = new RepoStore(this);
         store.ensureSeed();
         installCrashHandler();
@@ -481,26 +483,25 @@ public class MainActivity extends Activity {
                 + "function add(id,label,title,fn){if(document.getElementById(id))return;"
                 + "var b=document.createElement('button');b.id=id;b.className='icon-btn';b.title=title;"
                 + "b.style.fontSize='14px';b.textContent=label;b.onclick=fn;bar.appendChild(b);}"
-                + "add('app-sync','☁','同步 GitHub',function(){AndroidRepo.requestSync();});"
+                + "add('app-sync','☁','同步 Gitee',function(){AndroidRepo.requestSync();});"
                 + "add('app-update','⬆','检查更新',function(){AndroidRepo.checkUpdate();});"
-                + "add('app-settings','⚙','数据来源 / 同步设置',function(){AndroidRepo.openSettings();});"
                 + "}catch(e){}})();";
         web.evaluateJavascript(js, null);
     }
 
     // -------------------------------------------------------------- 配置
-    /** 设置里存什么都行（完整 https 链接 / owner/repo），取用时统一归一成 owner/repo。 */
+    /** 数据仓库：Gitee 私有仓库，owner/repo。 */
     private String repo() {
-        String saved = Repos.normalize(prefs.getString("repo", Repos.DEFAULT));
-        return saved.isEmpty() ? Repos.DEFAULT : saved;
+        return Repos.normalize(prefs.getString("gitee_repo", ""));
     }
 
     private String branch() {
-        return prefs.getString("branch", "main");
+        return prefs.getString("gitee_branch", "master");
     }
 
+    /** 令牌只以 Keystore 密文落盘，运行时才解出来。 */
     private String token() {
-        return prefs.getString("token", "");
+        return tokens.get("gitee_token");
     }
 
     private void showSettings() {
@@ -528,10 +529,12 @@ public class MainActivity extends Activity {
             box.addView(apkLine);
         }
 
-        final EditText repoInput = field("https://github.com/" + Repos.DEFAULT,
+        final EditText repoInput = field("https://gitee.com/你的用户名/仓库名",
                 Repos.webUrl(repo()), InputType.TYPE_TEXT_VARIATION_URI);
-        final EditText branchInput = field("main", branch(), InputType.TYPE_CLASS_TEXT);
-        final EditText tokenInput = field("ghp_… 或 github_pat_…", token(),
+        final EditText branchInput = field("master", branch(), InputType.TYPE_CLASS_TEXT);
+        final String oldToken = token();
+        final EditText tokenInput = field("Gitee 私人令牌（必填）",
+                oldToken.isEmpty() ? "" : "••••••••",
                 InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         final android.widget.CheckBox autoUp = new android.widget.CheckBox(this);
         autoUp.setText("自动检查更新（发现新版先给你看更新内容，点了才下载）");
@@ -539,19 +542,32 @@ public class MainActivity extends Activity {
         autoUp.setChecked(autoUpdate());
         autoUp.setPadding(0, dp(8), 0, dp(4));
 
-        box.addView(label("数据仓库（你自己的 notes/data 仓库，完整链接或 owner/repo 都认）"));
+        LinearLayout guide = new LinearLayout(this);
+        guide.setOrientation(LinearLayout.HORIZONTAL);
+        android.widget.Button regBtn = miniBtn("注册 Gitee");
+        regBtn.setOnClickListener(v -> openUrl("https://gitee.com/signup"));
+        android.widget.Button repoBtn = miniBtn("新建私有仓库");
+        repoBtn.setOnClickListener(v -> openUrl("https://gitee.com/projects/new"));
+        android.widget.Button tokenBtn = miniBtn("怎么拿令牌");
+        tokenBtn.setOnClickListener(v -> showTokenGuide());
+        guide.addView(regBtn);
+        guide.addView(repoBtn);
+        guide.addView(tokenBtn);
+        box.addView(guide);
+
+        box.addView(label("数据中心（必须是 Gitee 私有仓库，抖音数据存这里）"));
         box.addView(repoInput);
-        box.addView(label("分支"));
+        box.addView(label("分支（新建仓库一般是 master）"));
         box.addView(branchInput);
-        box.addView(label("Token（需要 repo 读写权限）"));
+        box.addView(label("私人令牌（只存加密后的密文）"));
         box.addView(tokenInput);
         android.widget.Button probeBtn = new android.widget.Button(this);
         probeBtn.setAllCaps(false);
-        probeBtn.setText("检查仓库 / Token / 分支");
+        probeBtn.setText("检查仓库 / 令牌 / 分支");
         probeBtn.setOnClickListener(v -> probeConfig(repoInput, branchInput, tokenInput));
         box.addView(probeBtn);
         box.addView(autoUp);
-        TextView tip = label("Token 只存在本机 App 私有目录；留空只能读公开仓库。\n同步会先推送本机复习进度，再拉取最新笔记与数据。\n同步在后台跑，顶部一条进度，不挡你翻页/刷题。\n检查更新固定读公开仓库 AI-Mind，跟这里填的数据仓库无关。");
+        TextView tip = label("令牌用 Android Keystore 加密后才落盘，页面上只显示圆点。\n仓库必须是私有的：公开仓库等于把抖音数据给别人看。\n同步在后台跑，顶部灵动岛显示进度，不挡操作。");
         tip.setTextSize(11);
         tip.setTextColor(Color.parseColor("#8A94A6"));
         box.addView(tip);
@@ -575,7 +591,7 @@ public class MainActivity extends Activity {
         box.addView(label("抖音（手机自己抓，只读创作者中心）"));
 
         AlertDialog.Builder b = new AlertDialog.Builder(this);
-        b.setTitle("GitHub 同步");
+        b.setTitle("我的数据仓库");
         android.widget.ScrollView scroll = new android.widget.ScrollView(this);
         scroll.addView(box);
         b.setView(scroll);
@@ -591,16 +607,43 @@ public class MainActivity extends Activity {
         dlg.show();
     }
 
+    private void openUrl(String url) {
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+        } catch (Exception e) {
+            toast("打不开浏览器：" + url);
+        }
+    }
+
+    private void showTokenGuide() {
+        new AlertDialog.Builder(this)
+                .setTitle("怎么拿 Gitee 令牌")
+                .setMessage("1. 注册 / 登录 Gitee（用手机号即可）\n"
+                        + "2. 新建一个仓库，可见性选「私有」\n"
+                        + "3. 头像 → 设置 → 私人令牌 → 生成新令牌\n"
+                        + "4. 勾选 projects 权限，生成后复制那串字符\n"
+                        + "5. 回到这里填仓库地址（owner/repo）和令牌，点「保存并同步」\n\n"
+                        + "令牌只用来读写你自己的私有仓库；App 里只存加密后的密文。")
+                .setPositiveButton("去令牌页", (d, w) -> openUrl("https://gitee.com/profile/personal_access_tokens"))
+                .setNegativeButton("知道了", null)
+                .show();
+    }
+
     /**
-     * 现场体检：仓库根 / 分支 / version.json 三个接口各打一次，
-     * 哪一步 404 一眼看出来（私有仓库没权限时 GitHub 故意回 404，不是 403）。
+     * 现场体检：仓库 / 分支 / 根目录三个接口各打一次，
+     * 哪一步 404 一眼看出来（私有仓库没权限时也常回 404）。
      */
     private void probeConfig(EditText repoInput, EditText branchInput, EditText tokenInput) {
         String raw = repoInput.getText().toString().trim();
-        final String r = Repos.normalize(raw.isEmpty() ? Repos.DEFAULT : raw);
+        final String r = Repos.normalize(raw);
+        if (r.isEmpty()) {
+            toast("先填 Gitee 仓库地址：owner/repo");
+            return;
+        }
         String b = branchInput.getText().toString().trim();
-        final String br = b.isEmpty() ? "main" : b;
-        final String tok = tokenInput.getText().toString().trim();
+        final String br = b.isEmpty() ? "master" : b;
+        String t = tokenInput.getText().toString().trim();
+        final String tok = t.startsWith("•") ? token() : t;
 
         final ProgressDialog pd = new ProgressDialog(this);
         pd.setMessage("正在检查 " + r + " …");
@@ -615,10 +658,10 @@ public class MainActivity extends Activity {
                     .append("\n\n");
             int c1 = probe("/repos/" + r, tok);
             int c2 = probe("/repos/" + r + "/branches/" + br, tok);
-            int c3 = probe("/repos/" + r + "/contents/version.json?ref=" + br, tok);
+            int c3 = probe("/repos/" + r + "/contents/?ref=" + br, tok);
             sb.append(probeLine("① 仓库能不能访问", c1)).append("\n")
                     .append(probeLine("② 分支是否存在", c2)).append("\n")
-                    .append(probeLine("③ version.json 能不能读", c3)).append("\n\n")
+                    .append(probeLine("③ 根目录能不能读", c3)).append("\n\n")
                     .append(probeHint(c1, c2, c3));
             runOnUiThread(() -> {
                 pd.dismiss();
@@ -634,13 +677,16 @@ public class MainActivity extends Activity {
     private int probe(String path, String token) {
         java.net.HttpURLConnection c = null;
         try {
-            c = (java.net.HttpURLConnection) new java.net.URL("https://api.github.com" + path)
-                    .openConnection();
+            String url = GiteeClient.API + path;
+            if (!token.isEmpty()) {
+                url += (path.contains("?") ? "&" : "?") + "access_token="
+                        + java.net.URLEncoder.encode(token, "UTF-8");
+            }
+            c = (java.net.HttpURLConnection) new java.net.URL(url).openConnection();
             c.setConnectTimeout(15000);
             c.setReadTimeout(20000);
             c.setRequestProperty("User-Agent", "secondbrain-app");
-            c.setRequestProperty("Accept", "application/vnd.github+json");
-            if (!token.isEmpty()) c.setRequestProperty("Authorization", "Bearer " + token);
+            c.setRequestProperty("Accept", "application/json");
             return c.getResponseCode();
         } catch (Exception e) {
             return -1;
@@ -656,17 +702,17 @@ public class MainActivity extends Activity {
 
     private static String probeHint(int c1, int c2, int c3) {
         if (c1 == 200 && c2 == 200 && c3 == 200) {
-            return "三项都通：检查更新和同步应该都能跑。若 ⬆ 仍报 404，保存一次设置再点，或换个网络重试。";
+            return "三项都通：这个 Gitee 私有仓库可以当数据中心了。";
         }
         if (c1 == 404) {
-            return "第①步就 404：仓库名写错了，或 Token 对这个私有仓库没权限"
-                    + "（私有仓库没权限时 GitHub 故意回 404，不会告诉你 403）。";
+            return "第①步就 404：仓库名写错了，或令牌对这个私有仓库没权限"
+                    + "（Gitee 对无权限的私有仓库也常回 404）。";
         }
-        if (c2 == 404) return "第②步 404：分支名不对，一般应该是 main。";
-        if (c3 == 404) return "第③步 404：仓库和分支都在，但根目录读不到 version.json —— 确认文件在仓库根。";
-        if (c1 == 401 || c2 == 401 || c3 == 401) return "Token 无效或已被撤销：重新生成一个带 repo 读写权限的 Token。";
-        if (c1 == 403 || c2 == 403 || c3 == 403) return "HTTP 403：被限流或权限不足，过几分钟再试。";
-        if (c1 < 0 || c2 < 0 || c3 < 0) return "连不上 api.github.com：网络把它拦了，换 Wi-Fi/流量再试。";
+        if (c2 == 404) return "第②步 404：分支名不对，Gitee 新建仓库一般是 master。";
+        if (c3 == 404) return "第③步 404：仓库和分支都在，但根目录读不到 —— 仓库是不是空的？先建一个 README 初始化。";
+        if (c1 == 401 || c2 == 401 || c3 == 401) return "令牌无效或已被撤销：重新生成一个勾了 projects 的令牌。";
+        if (c1 == 403 || c2 == 403 || c3 == 403) return "HTTP 403：权限不足（令牌要勾 projects）或被限流。";
+        if (c1 < 0 || c2 < 0 || c3 < 0) return "连不上 gitee.com：网络把它拦了，换 Wi-Fi/流量再试。";
         return "按上面的 HTTP 码排查。";
     }
 
@@ -790,26 +836,45 @@ public class MainActivity extends Activity {
         return btn;
     }
 
-    /** 保存设置；仓库地址认不出来时不落盘（返回 false）。 */
+    /** 保存 Gitee 数据仓库设置；地址认不出 / 没令牌时不落盘（返回 false）。 */
     private boolean saveConfig(EditText repoInput, EditText branchInput, EditText tokenInput,
                                android.widget.CheckBox autoUp) {
         String raw = repoInput.getText().toString().trim();
         String repo = Repos.normalize(raw);
         if (repo.isEmpty()) {
-            if (raw.isEmpty()) {
-                repo = Repos.DEFAULT;
-            } else {
-                toast("仓库地址认不出来，示例：\nhttps://github.com/" + Repos.DEFAULT + "\n或 " + Repos.DEFAULT);
-                return false;
-            }
+            toast("仓库地址认不出来，示例：\nhttps://gitee.com/你的用户名/仓库名\n或 用户名/仓库名");
+            return false;
         }
+        String b = branchInput.getText().toString().trim();
+        if (b.isEmpty()) b = "master";
+        String t = tokenInput.getText().toString().trim();
+        if (t.startsWith("•")) t = token();
+        if (t.isEmpty()) {
+            toast("先填 Gitee 私人令牌（点「怎么拿令牌」看步骤）");
+            return false;
+        }
+        tokens.put("gitee_token", t);
         prefs.edit()
-                .putString("repo", repo)
-                .putString("branch", branchInput.getText().toString().trim())
-                .putString("token", tokenInput.getText().toString().trim())
+                .putString("gitee_repo", repo)
+                .putString("gitee_branch", b)
                 .putBoolean("auto_update", autoUp == null || autoUp.isChecked())
                 .apply();
+        verifyPrivate(repo, t, b);
         return true;
+    }
+
+    /** 数据中心必须是私有仓库：保存后后台查一次，公开仓库直接提醒。 */
+    private void verifyPrivate(String repo, String token, String branch) {
+        new Thread(() -> {
+            try {
+                org.json.JSONObject info = new GiteeClient(repo, token, branch).info();
+                if (!info.optBoolean("private", false)) {
+                    runOnUiThread(() -> toast("这个仓库不是私有的！请到 Gitee 把仓库改成私有，否则抖音数据会公开"));
+                }
+            } catch (Exception e) {
+                runOnUiThread(() -> toast("仓库检查失败：" + e.getMessage()));
+            }
+        }).start();
     }
 
     // -------------------------------------------------------------- 安装权限（未知来源）
@@ -1199,26 +1264,28 @@ public class MainActivity extends Activity {
             toast("正在同步…");
             return;
         }
-        if (token().isEmpty()) {
-            toast("先在 ⚙ 里填 GitHub Token");
+        if (repo().isEmpty() || token().isEmpty()) {
+            toast("先配置 Gitee 私有仓库和令牌");
             showSettings();
             return;
         }
         syncing = true;
         topStart("☁ 准备同步…");
-        final GitHubClient client = new GitHubClient(repo(), token(), branch());
+        final GiteeClient client = new GiteeClient(repo(), token(), branch());
         new Thread(() -> {
             try {
+                // 数据中心必须是私有的：公开仓库等于把抖音数据给别人看
+                org.json.JSONObject info = client.info();
+                if (!info.optBoolean("private", false)) {
+                    throw new java.io.IOException("仓库不是私有的：请到 Gitee 把仓库改成私有");
+                }
                 client.sync(store, msg -> topText("☁ " + msg));
                 prefs.edit().putString("last_sync", now()).putString("last_error", "").apply();
-                logEvent("sync", true, "✓ GitHub 已同步 · 已刷新页面");
+                logEvent("sync", true, "✓ Gitee 已同步 · 已刷新页面");
                 uiHandler.post(() -> {
                     syncing = false;
-                    // 同步成功就直接重载页面：页面里的 bundle 是加载时算一次并缓存的，
-                    // 不 reload 的话拉回来/刚抓的新数字根本不会显示（用户会以为"同步了但数据没变"）。
-                    // hash 路由会保留，人还停在原来那页；同一版本仍只提示一次。
                     if (web != null) web.reload();
-                    topDone("✓ GitHub 已同步 · 已刷新页面", true, null);
+                    topDone("✓ Gitee 已同步 · 已刷新页面", true, null);
                 });
             } catch (Exception e) {
                 final String msg = e.getMessage() == null ? e.toString() : e.getMessage();
@@ -1370,7 +1437,7 @@ public class MainActivity extends Activity {
         t3.setTextIsSelectable(true);
         box.addView(t3);
 
-        TextView t4 = label("下载完系统会弹一次安装器，点一下「安装」即可；数据都在本地和 GitHub，不会丢。");
+        TextView t4 = label("下载用顶部灵动岛显示进度，不挡你操作；下完点胶囊就能装。数据都在本地和 Gitee 私有仓库，不会丢。");
         t4.setTextSize(10);
         t4.setTextColor(Color.parseColor("#8A94A6"));
         t4.setPadding(0, dp(10), 0, 0);
@@ -1393,7 +1460,7 @@ public class MainActivity extends Activity {
         });
 
         new AlertDialog.Builder(this)
-                .setTitle("新版 v" + info.name + " 有什么变化")
+                .setTitle("第二大脑 v" + info.name + " 有新版本")
                 .setView(scroll)
                 .setPositiveButton("下载并安装", (d, w) -> downloadAndInstall(info))
                 .setNeutralButton("查看完整说明", (d, w) -> openReleasePage(info))
@@ -1405,48 +1472,56 @@ public class MainActivity extends Activity {
         return String.format(java.util.Locale.CHINA, "%.1f MB", bytes / 1024.0 / 1024.0);
     }
 
-    /** 打开这次版本的 GitHub Release 页面（正文就是发版时的更新说明）。 */
+    /** 打开这次版本的 Release 页面（正文就是发版时的更新说明）。Gitee 优先。 */
     private void openReleasePage(Updater.Info info) {
-        String url = "https://github.com/" + Repos.UPDATE + "/releases/tag/v" + info.name;
-        try {
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
-        } catch (Exception e) {
-            toast("打不开浏览器：" + url);
-        }
+        String[] names = {"Gitee（国内直连）", "GitHub（备用）"};
+        String gitee = "https://gitee.com/" + Updater.GITEE + "/releases/tag/v" + info.name;
+        String github = "https://github.com/" + Updater.GITHUB + "/releases/tag/v" + info.name;
+        new AlertDialog.Builder(this)
+                .setTitle("查看更新说明")
+                .setItems(names, (d, which) -> openUrl(which == 0 ? gitee : github))
+                .show();
     }
 
     private void downloadAndInstall(final Updater.Info info) {
-        final ProgressDialog pd = new ProgressDialog(this);
-        pd.setTitle("下载中");
-        pd.setMessage(info.apk);
-        pd.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
-        pd.setMax(100);
-        pd.setCancelable(false);
-        pd.show();
-
+        final String label = "第二大脑 v" + info.name;
+        topStart("正在下载 " + label + " · 0%");
         new Thread(() -> {
             try {
                 File apk = Updater.download(info, Repos.UPDATE, null, apkDir(), ratio ->
-                        runOnUiThread(() -> pd.setProgress((int) (ratio * 100))));
-                runOnUiThread(() -> {
-                    pd.dismiss();
-                    confirmInstall(info, apk);
-                });
+                        topText("正在下载 " + label + " · " + (int) (ratio * 100) + "%"));
+                logEvent("update", true, "✓ " + label + " 下载完成（"
+                        + (info.source == null ? "—" : info.source) + "），等你点安装");
+                uiHandler.post(() -> topDoneSticky("✓ " + label + " 下载完成，点这里安装",
+                        () -> confirmInstall(info, apk)));
             } catch (Exception e) {
                 final String msg = e.getMessage() == null ? e.toString() : e.getMessage();
                 logEvent("update", false, "下载更新包失败：" + msg);
-                runOnUiThread(() -> {
-                    pd.dismiss();
-                    new AlertDialog.Builder(MainActivity.this)
-                            .setTitle("更新失败")
-                            .setMessage(msg + "\n\n来源：" + (info.source == null || info.source.isEmpty()
-                                    ? "—" : info.source)
-                                    + "\n已自动重试过一次；还不行就过会儿再点 ⬆，或把这段文字发我。")
-                            .setPositiveButton("知道了", null)
-                            .show();
-                });
+                uiHandler.post(() -> topDone("✗ 下载失败：" + msg + "（点一下收起）", false, null));
             }
         }).start();
+    }
+
+    /** 下载完成用：绿点常驻，不自动收，等用户点一下去安装。 */
+    private void topDoneSticky(final String text, final Runnable onTap) {
+        uiHandler.post(() -> {
+            if (topBar == null) return;
+            if (topBarHide != null) {
+                uiHandler.removeCallbacks(topBarHide);
+                topBarHide = null;
+            }
+            topBarBar.setVisibility(View.GONE);
+            topBarDot.setBackground(dotBg("#3ED17A"));
+            topBarDot.setVisibility(View.VISIBLE);
+            topBarText.setText(text);
+            topBar.setOnClickListener(v -> {
+                hideTopBar();
+                if (onTap != null) onTap.run();
+            });
+            topBar.setVisibility(View.VISIBLE);
+            topBar.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f)
+                    .setDuration(160).start();
+        });
     }
 
     /**
@@ -1551,6 +1626,8 @@ public class MainActivity extends Activity {
             try {
                 o.put("repo", repo());
                 o.put("branch", branch());
+                o.put("provider", "gitee");
+                o.put("tokenSet", !token().isEmpty());
                 o.put("lastSync", prefs.getString("last_sync", ""));
                 o.put("lastError", prefs.getString("last_error", ""));
                 o.put("dirty", store.dirty().size());
