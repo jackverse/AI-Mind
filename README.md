@@ -110,5 +110,7 @@ tools/
 
 | 微信支付 | 支付宝 |
 |---|---|
-| <img src="docs/sponsor/wechat.jpg" width="260" alt="微信支付收款码"> | <img src="docs/sponsor/alipay.jpg" width="260" alt="支付宝收款码"> |
+| [![微信支付](docs/sponsor/wechat-280.jpg)](docs/sponsor/wechat.jpg) | [![支付宝](docs/sponsor/alipay-280.jpg)](docs/sponsor/alipay.jpg) |
+
+> 点图片看原图。二维码只用于自愿打赏。
 
