@@ -1,10 +1,10 @@
 {
-    "notes":  "精简为 4 个入口：首页 / 抖音 / 小红书 / 我的。0.x 开头都是内测版，功能和接口可能变；反馈加微信 jack9527xz 或邮件 1060061749@qq.com。仓库与安装包不含任何个人数据。",
+    "notes":  "「我的」页底部新增「联系我们」按钮：点开显示微信 jack9527xz / 邮箱 1060061749@qq.com，都能一键复制。0.x 仍为内测版。",
     "com.jackverse.secondbrain":  {
-                                      "versionCode":  2,
-                                      "versionName":  "0.0.2",
+                                      "versionCode":  3,
+                                      "versionName":  "0.0.3",
                                       "apk":  "hub-android.apk",
                                       "size":  128240,
-                                      "sha256":  "3b608dd77c4c78a6ee56feaaddaccf09f50f9db833deed099aae3b22ec5763f7"
+                                      "sha256":  "cdb162f636415929114f043937e05889188309f440e61dfb3f925ad5917b607d"
                                   }
 }

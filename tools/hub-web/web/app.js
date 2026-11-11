@@ -1583,6 +1583,12 @@ function bindMe() {
   const set = $('#me-settings');
   if (set) set.addEventListener('click', () => AndroidRepo.openSettings());
 
+  const contact = $('#me-contact');
+  if (contact) contact.addEventListener('click', () => {
+    const box = $('#me-contact-info');
+    if (box) box.style.display = box.style.display === 'none' ? 'block' : 'none';
+  });
+
   document.querySelectorAll('[data-me]').forEach((row) => {
     row.addEventListener('click', () => {
       const k = row.dataset.me;
@@ -1644,7 +1650,16 @@ function pageMe() {
         <div class="me-rows">${meRows(st)}</div>
       </div>
       ${meDiag(st)}
-      <div class="me-note">数据只存在这台手机的 App 私有目录，同步只经过你自己的 GitHub 仓库。</div>`,
+      <div class="me-note">数据只存在这台手机的 App 私有目录，同步只经过你自己的 GitHub 仓库。</div>
+      <div class="card card-pad">
+        <div class="card-title">反馈 <span class="hint">用着有问题、想要新功能都可以说</span></div>
+        <button class="btn primary" id="me-contact">联系我们</button>
+        <div id="me-contact-info" style="display:none;margin-top:10px;line-height:1.9">
+          微信：<b>jack9527xz</b><br>
+          邮箱：<b>1060061749@qq.com</b><br>
+          <span class="hint">加微信或发邮件，看到会回。</span>
+        </div>
+      </div>`,
     mount() { bindMe(); },
   };
 }

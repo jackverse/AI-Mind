@@ -62,25 +62,19 @@ class MePage(tk.Frame):
         self.privacy_label.pack(side="left")
         tk.Button(box, text="切换", command=self._toggle_privacy).pack(side="right")
 
-        # 反馈
-        self._section(wrap, "反馈")
-        box = self._card(wrap)
-        line = tk.Frame(box, bg=ui.C["card"])
-        line.pack(fill="x")
-        tk.Label(line, text=f"微信：{WECHAT}　邮箱：{EMAIL}", font=ui.F["body"],
-                 bg=ui.C["card"], fg=ui.C["text"], anchor="w").pack(side="left")
-        tk.Button(line, text="复制微信", command=lambda: self._copy(WECHAT)).pack(side="right")
-        links = tk.Frame(box, bg=ui.C["card"])
-        links.pack(fill="x", pady=(10, 0))
-        tk.Button(links, text="GitHub", command=lambda: webbrowser.open(GITHUB)).pack(side="left")
-        tk.Button(links, text="Gitee", command=lambda: webbrowser.open(GITEE)).pack(side="left", padx=(8, 0))
-
         # 关于
         self._section(wrap, "关于")
         box = self._card(wrap)
         tk.Label(box, text="完全开源、免费，可商用可私用（MIT）。0.x 开头都是内测版，功能和接口可能变。",
                  font=ui.F["body"], bg=ui.C["card"], fg=ui.C["muted"],
                  anchor="w", justify="left", wraplength=760).pack(fill="x")
+
+        # 反馈（放在页面最下面）
+        self._section(wrap, "反馈")
+        box = self._card(wrap)
+        tk.Label(box, text="用着有问题、想要新功能，都可以找我们。", font=ui.F["body"],
+                 bg=ui.C["card"], fg=ui.C["text"], anchor="w").pack(side="left")
+        tk.Button(box, text="联系我们", command=self._contact).pack(side="right")
 
     def _open_root(self):
         try:
@@ -96,9 +90,43 @@ class MePage(tk.Frame):
         try:
             self.clipboard_clear()
             self.clipboard_append(text)
-            self.app.notify("微信号已复制")
+            self.app.notify("已复制：" + text)
         except tk.TclError:
             pass
+
+    def _contact(self):
+        win = tk.Toplevel(self)
+        win.title("联系我们")
+        win.configure(bg=ui.C["bg"])
+        win.transient(self.winfo_toplevel())
+        win.resizable(False, False)
+
+        wrap = tk.Frame(win, bg=ui.C["bg"])
+        wrap.pack(padx=26, pady=20)
+        tk.Label(wrap, text="联系我们", font=ui.F["h1"], bg=ui.C["bg"],
+                 fg=ui.C["text"], anchor="w").pack(fill="x")
+        tk.Label(wrap, text="用着有问题、想要新功能，都可以找我。", font=ui.F["small"],
+                 bg=ui.C["bg"], fg=ui.C["muted"], anchor="w").pack(fill="x", pady=(4, 14))
+
+        tk.Label(wrap, text=f"微信：{WECHAT}", font=ui.F["body"], bg=ui.C["bg"],
+                 fg=ui.C["text"], anchor="w").pack(fill="x")
+        tk.Button(wrap, text="复制微信", command=lambda: self._copy(WECHAT)).pack(anchor="w", pady=(4, 10))
+
+        tk.Label(wrap, text=f"邮箱：{EMAIL}", font=ui.F["body"], bg=ui.C["bg"],
+                 fg=ui.C["text"], anchor="w").pack(fill="x")
+        tk.Button(wrap, text="复制邮箱", command=lambda: self._copy(EMAIL)).pack(anchor="w", pady=(4, 10))
+
+        links = tk.Frame(wrap, bg=ui.C["bg"])
+        links.pack(fill="x", pady=(2, 12))
+        tk.Button(links, text="GitHub", command=lambda: webbrowser.open(GITHUB)).pack(side="left")
+        tk.Button(links, text="Gitee", command=lambda: webbrowser.open(GITEE)).pack(side="left", padx=(8, 0))
+
+        tk.Button(wrap, text="关闭", command=win.destroy).pack(anchor="e")
+
+        win.update_idletasks()
+        x = self.winfo_rootx() + (self.winfo_width() - win.winfo_width()) // 2
+        y = self.winfo_rooty() + (self.winfo_height() - win.winfo_height()) // 2
+        win.geometry(f"+{max(x, 0)}+{max(y, 0)}")
 
     def sync_privacy(self):
         try:
