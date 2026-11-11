@@ -99,3 +99,16 @@ tools/
 ├─ build-all.ps1 构建两个产物
 └─ release.ps1   发版到 GitHub + Gitee
 ```
+
+## 许可
+
+[MIT License](LICENSE)。**完全开源、不收费**：可商用、可私用、可修改、可分发，保留版权与许可声明即可。
+
+## 赞助
+
+项目完全免费、完全开放，没有付费版，也不卖服务。如果它帮你省了时间，欢迎自愿打赏（不影响任何功能）：
+
+| 微信支付 | 支付宝 |
+|---|---|
+| <img src="docs/sponsor/wechat.jpg" width="260" alt="微信支付收款码"> | <img src="docs/sponsor/alipay.jpg" width="260" alt="支付宝收款码"> |
+
