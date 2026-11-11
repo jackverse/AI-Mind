@@ -24,11 +24,11 @@ from tkinter import messagebox, ttk
 
 import ui
 import discover
-from core import modules, privacy, usage
+from core import features, modules, privacy, usage
 from core.paths import Ctx
 
 APP_TITLE = "第二大脑"
-VERSION = "0.0.3"
+VERSION = "0.0.4"
 
 # ---------------------------------------------------------------- 导航配置
 # 键 -> (图标, 显示名, 副标题, 页面模块, 权重)
@@ -175,6 +175,7 @@ class App:
         self.recording = True          # 自检时不记浏览
         self.modules_data = modules.load()
         self.plugin_errors = []
+        self.features = features.load(ctx.root)
         self.registry = self._build_registry()
         self.privacy_on = privacy.enabled()
         self.version = VERSION
@@ -285,6 +286,8 @@ class App:
     def _build_registry(self):
         reg = {}
         for key in PAGES:
+            if key in features.KEYS and not self.features.get(key, True):
+                continue
             if modules.is_purged(self.modules_data, key) and key not in PROTECTED:
                 continue
             reg[key] = self._entry_from_state(self._static_entry(key), key)
@@ -479,6 +482,11 @@ class App:
         page = self.pages.get("me")
         if page is not None and hasattr(page, "refresh_modules"):
             page.refresh_modules()
+
+    def apply_features(self):
+        """功能拓展开关变了：重算侧栏；当前页被关掉就回首页。"""
+        self.features = features.load(self.ctx.root)
+        self._apply_modules()
 
     def _switch_home(self):
         old = self.recording

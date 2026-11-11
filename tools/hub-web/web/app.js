@@ -5,13 +5,14 @@
  * 数据来自 server.py 的 /api/bundle；没有服务端时退回 data/bundle.json 静态快照。
  * ===================================================================== */
 
-const PAGES = [
+const ALL_PAGES = [
   { key: 'home',   ico: '◎', name: '首页',   sub: '总览' },
   { key: 'douyin', ico: '♪', name: '抖音',   sub: '作品与趋势' },
   { key: 'xhs',    ico: '✦', name: '小红书', sub: '笔记与指标' },
 ];
 // 「我的」只在手机壳里有（要读写 App 私有设置 / 本机同步记录）；浏览器版不显示
-if (window.AndroidRepo) PAGES.push({ key: 'me', ico: '◉', name: '我的', sub: '同步记录 · 设置' });
+if (window.AndroidRepo) ALL_PAGES.push({ key: 'me', ico: '◉', name: '我的', sub: '同步记录 · 设置' });
+let PAGES = ALL_PAGES.slice();
 
 const state = {
   data: null,
@@ -20,6 +21,7 @@ const state = {
   tl: { filter: 'all', expanded: {} },
   sel: { douyin: '__all__', xhs: '__all__', bills: '__all__' },
   quiz: null,
+  features: { onboarded: true, douyin: true, xhs: true },
 };
 
 /* ------------------------------------------------------------ 小工具 */
@@ -59,6 +61,85 @@ function parseHash() {
   const params = {};
   new URLSearchParams(qs || '').forEach((v, k) => { params[k] = v; });
   return { key: PAGES.some((p) => p.key === path) ? path : 'home', params };
+}
+
+/* ------------------------------------------------------------ 功能开关 */
+function rebuildPages() {
+  PAGES = ALL_PAGES.filter((p) => p.key === 'home' || p.key === 'me'
+    || state.features[p.key] !== false);
+}
+
+function loadFeatures() {
+  try {
+    if (window.AndroidRepo && typeof AndroidRepo.features === 'function') {
+      const f = JSON.parse(AndroidRepo.features() || '{}');
+      state.features = {
+        onboarded: !!f.onboarded,
+        douyin: f.douyin !== false,
+        xhs: f.xhs !== false,
+      };
+    } else {
+      const raw = localStorage.getItem('aimind.features');
+      if (raw) state.features = Object.assign(state.features, JSON.parse(raw));
+    }
+  } catch (e) { /* 读不到就按默认全开 */ }
+  rebuildPages();
+}
+
+function saveFeature(key, on) {
+  state.features[key] = !!on;
+  try {
+    if (window.AndroidRepo && typeof AndroidRepo.setFeature === 'function') {
+      AndroidRepo.setFeature(key, !!on);
+    } else {
+      localStorage.setItem('aimind.features', JSON.stringify(state.features));
+    }
+  } catch (e) { /* 设置失败也不挡用 */ }
+}
+
+/** 首次启动的模块选择 + 「我的 → 功能拓展」共用同一个弹层。 */
+function showFeatureModal(firstRun) {
+  const mask = document.createElement('div');
+  mask.className = 'feat-mask';
+  mask.innerHTML = `
+    <div class="feat-card">
+      <div class="feat-title">${firstRun ? '先选一下要用的功能' : '功能拓展'}</div>
+      <div class="feat-sub">${firstRun
+        ? '默认都打开，之后在「我的 → 功能拓展」里随时改。'
+        : '关闭只隐藏入口，已经同步的数据不会动。'}</div>
+      <label class="feat-row">
+        <div><b>抖音</b><div class="feat-desc">账号、作品、趋势、自动同步</div></div>
+        <input type="checkbox" id="feat-douyin" ${state.features.douyin ? 'checked' : ''}>
+      </label>
+      <label class="feat-row">
+        <div><b>小红书</b><div class="feat-desc">账号、笔记、近 30 天指标</div></div>
+        <input type="checkbox" id="feat-xhs" ${state.features.xhs ? 'checked' : ''}>
+      </label>
+      <div class="feat-actions"><button class="btn primary" id="feat-done">${firstRun ? '开始使用' : '完成'}</button></div>
+    </div>`;
+  document.body.appendChild(mask);
+
+  const dy = mask.querySelector('#feat-douyin');
+  const xh = mask.querySelector('#feat-xhs');
+  dy.addEventListener('change', () => saveFeature('douyin', dy.checked));
+  xh.addEventListener('change', () => saveFeature('xhs', xh.checked));
+
+  mask.querySelector('#feat-done').addEventListener('click', () => {
+    saveFeature('douyin', dy.checked);
+    saveFeature('xhs', xh.checked);
+    if (firstRun) {
+      state.features.onboarded = true;
+      try {
+        if (window.AndroidRepo && typeof AndroidRepo.setOnboarded === 'function') AndroidRepo.setOnboarded();
+        else localStorage.setItem('aimind.features', JSON.stringify(state.features));
+      } catch (e) { /* ignore */ }
+    }
+    mask.remove();
+    rebuildPages();
+    if (!PAGES.some((p) => p.key === state.route.key)) location.hash = '#/home';
+    renderNav();
+    render();
+  });
 }
 
 /* ------------------------------------------------------------ 数据 */
@@ -1529,6 +1610,14 @@ function meRows(st) {
       </div>
       <span class="me-row-go">›</span>
     </div>
+    <div class="me-row" data-me="features">
+      <span class="me-row-ico">▦</span>
+      <div class="me-row-main">
+        <div class="me-row-t">功能拓展</div>
+        <div class="me-row-s">抖音 ${state.features.douyin ? '开' : '关'} · 小红书 ${state.features.xhs ? '开' : '关'} · 关闭不影响历史数据</div>
+      </div>
+      <span class="me-row-go">›</span>
+    </div>
     <div class="me-row" data-me="update">
       <span class="me-row-ico">⬆</span>
       <div class="me-row-main">
@@ -1597,6 +1686,7 @@ function bindMe() {
         if (typeof AndroidRepo.openInstallSettings === 'function') AndroidRepo.openInstallSettings();
         else AndroidRepo.openSettings();
       } else if (k === 'douyin') go('douyin');
+      else if (k === 'features') showFeatureModal(false);
       else if (k === 'update') AndroidRepo.checkUpdate();
     });
   });
@@ -1680,6 +1770,7 @@ function bindGlobal() {
 }
 
 async function boot() {
+  loadFeatures();
   bindGlobal();
   renderNav();
   try {
@@ -1694,6 +1785,8 @@ async function boot() {
   }
   if (!location.hash) location.hash = '#/home';
   render();
+  // 第一次进 App（安装后第一次启动）先让用户选模块，默认全开
+  if (window.AndroidRepo && !state.features.onboarded) showFeatureModal(true);
 }
 
 boot();

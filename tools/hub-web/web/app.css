@@ -761,3 +761,14 @@ table.data tr:last-child td { border-bottom: 0; }
   .tabbar button { font-size: 9px; }
   .tabbar button .ico { font-size: 16px; }
 }
+
+/* 功能开关弹层（首次启动 / 我的 → 功能拓展） */
+.feat-mask { position: fixed; inset: 0; background: rgba(10, 14, 22, .55); display: flex; align-items: center; justify-content: center; padding: 18px; z-index: 80; }
+.feat-card { background: #fff; border-radius: 18px; padding: 20px; width: min(420px, 92vw); box-shadow: 0 18px 50px rgba(10, 14, 22, .28); }
+.feat-title { font-size: 17px; font-weight: 700; color: var(--text); }
+.feat-sub { font-size: 12px; color: var(--muted); margin: 6px 0 8px; line-height: 1.6; }
+.feat-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 13px 0; border-bottom: 1px solid var(--line); }
+.feat-row b { font-size: 14px; color: var(--text); }
+.feat-desc { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.feat-row input { width: 22px; height: 22px; accent-color: #3d6ee0; flex: 0 0 auto; }
+.feat-actions { display: flex; justify-content: flex-end; margin-top: 16px; }

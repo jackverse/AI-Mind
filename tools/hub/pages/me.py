@@ -8,7 +8,7 @@ import tkinter as tk
 import webbrowser
 
 import ui
-from core import privacy
+from core import features, privacy
 
 WECHAT = "jack9527xz"
 EMAIL = "1060061749@qq.com"
@@ -20,6 +20,8 @@ class MePage(tk.Frame):
     def __init__(self, master, ctx, app):
         super().__init__(master, bg=ui.C["bg"])
         self.ctx, self.app = ctx, app
+        self.feature_state = features.load(ctx.root)
+        self.feature_vars = {}
         self._build()
 
     def _section(self, parent, title):
@@ -62,6 +64,28 @@ class MePage(tk.Frame):
         self.privacy_label.pack(side="left")
         tk.Button(box, text="切换", command=self._toggle_privacy).pack(side="right")
 
+        # 功能拓展
+        self._section(wrap, "功能拓展")
+        box = self._card(wrap)
+        for key, label, desc in (
+            ("douyin", "抖音", "账号、作品、趋势、自动同步"),
+            ("xhs", "小红书", "账号、笔记、近 30 天指标"),
+        ):
+            row = tk.Frame(box, bg=ui.C["card"])
+            row.pack(fill="x", pady=3)
+            var = tk.BooleanVar(value=self.feature_state.get(key, True))
+            self.feature_vars[key] = var
+            tk.Checkbutton(row, text=label, variable=var,
+                           command=lambda k=key: self._toggle_feature(k),
+                           bg=ui.C["card"], fg=ui.C["text"],
+                           activebackground=ui.C["card"], selectcolor=ui.C["card"],
+                           font=ui.F["body"], anchor="w").pack(side="left")
+            tk.Label(row, text=desc, font=ui.F["small"], bg=ui.C["card"],
+                     fg=ui.C["muted"], anchor="w").pack(side="left", padx=(10, 0))
+        tk.Label(box, text="关闭只隐藏入口，已经同步的数据不会动。",
+                 font=ui.F["small"], bg=ui.C["card"], fg=ui.C["muted"],
+                 anchor="w").pack(fill="x", pady=(8, 0))
+
         # 关于
         self._section(wrap, "关于")
         box = self._card(wrap)
@@ -85,6 +109,10 @@ class MePage(tk.Frame):
     def _toggle_privacy(self):
         self.app.toggle_privacy()
         self.sync_privacy()
+
+    def _toggle_feature(self, key):
+        features.set_enabled(key, self.feature_vars[key].get(), self.ctx.root)
+        self.app.apply_features()
 
     def _copy(self, text):
         try:

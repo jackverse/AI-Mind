@@ -1617,6 +1617,39 @@ public class MainActivity extends Activity {
             return myVersionName() + " (" + myVersionCode() + ")";
         }
 
+        // ---------------------------------------------------------- 功能开关
+        /** 首次启动标记 + 抖音/小红书开关（默认都开）。 */
+        @JavascriptInterface
+        public String features() {
+            JSONObject o = new JSONObject();
+            try {
+                // 只有「新安装」才弹首次选择；升级上来的老用户不打扰
+                boolean fresh = false;
+                try {
+                    android.content.pm.PackageInfo pi =
+                            getPackageManager().getPackageInfo(getPackageName(), 0);
+                    fresh = pi.firstInstallTime == pi.lastUpdateTime;
+                } catch (Exception ignored) {
+                }
+                o.put("onboarded", prefs.getBoolean("features.onboarded", !fresh));
+                o.put("douyin", prefs.getBoolean("features.douyin", true));
+                o.put("xhs", prefs.getBoolean("features.xhs", true));
+            } catch (Exception ignored) {
+            }
+            return o.toString();
+        }
+
+        @JavascriptInterface
+        public void setFeature(String key, boolean on) {
+            if (!"douyin".equals(key) && !"xhs".equals(key)) return;
+            prefs.edit().putBoolean("features." + key, on).apply();
+        }
+
+        @JavascriptInterface
+        public void setOnboarded() {
+            prefs.edit().putBoolean("features.onboarded", true).apply();
+        }
+
         // ---------------------------------------------------------- 抖音（页面里直接管账号）
         /** 每个号的登录态给页面：[{handle,name,alive,days,loginAt,last,lastMsg}]。 */
         @JavascriptInterface
