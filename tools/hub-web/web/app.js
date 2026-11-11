@@ -6,16 +6,9 @@
  * ===================================================================== */
 
 const PAGES = [
-  { key: 'home',     ico: '◎', name: '首页',   sub: '总览' },
-  { key: 'notes',    ico: '☰', name: '笔记',   sub: '全部 md' },
-  { key: 'fitness',  ico: '♥', name: '健身',   sub: '日报派生' },
-  { key: 'timeline', ico: '⏱', name: '时间线', sub: '在干嘛' },
-  { key: 'talk',     ico: '✧', name: '对话',   sub: '和 agent 的记录' },
-  { key: 'douyin',   ico: '♪', name: '抖音',   sub: '作品与趋势' },
-  { key: 'xhs',      ico: '✦', name: '小红书', sub: '笔记与指标' },
-  { key: 'bills',    ico: '¥', name: '账单',   sub: '收支' },
-  { key: 'quiz',     ico: '✎', name: '刷题',   sub: '题库' },
-  { key: 'stats',    ico: '▤', name: '统计',   sub: '掌握度' },
+  { key: 'home',   ico: '◎', name: '首页',   sub: '总览' },
+  { key: 'douyin', ico: '♪', name: '抖音',   sub: '作品与趋势' },
+  { key: 'xhs',    ico: '✦', name: '小红书', sub: '笔记与指标' },
 ];
 // 「我的」只在手机壳里有（要读写 App 私有设置 / 本机同步记录）；浏览器版不显示
 if (window.AndroidRepo) PAGES.push({ key: 'me', ico: '◉', name: '我的', sub: '同步记录 · 设置' });
@@ -334,7 +327,7 @@ async function render() {
   const page = PAGES.find((p) => p.key === key) || PAGES[0];
   renderNav();
   const view = $('#view');
-  const pages = { home: pageHome, notes: pageNotes, fitness: pageFitness, timeline: pageTimeline, talk: pageTalk, douyin: pageDouyin, xhs: pageXhs, bills: pageBills, quiz: pageQuiz, stats: pageStats, me: pageMe };
+  const pages = { home: pageHome, douyin: pageDouyin, xhs: pageXhs, me: pageMe };
   const result = (pages[key] || pageHome)();
   setChrome(page.name + (result.crumb ? ' · ' + result.crumb : ''), result.sub || page.sub);
   view.innerHTML = result.html;
@@ -344,51 +337,25 @@ async function render() {
 
 /* ------------------------------------------------------------ 首页 */
 function pageHome() {
-  const d = state.data;
-  const h = d.home;
-  const todayRow = (d.fitness.rows || []).find((r) => r.date === h.today);
-  const latest = (d.fitness.series || []).slice(-1)[0];
-  const wDelta = d.fitness.summary?.w_delta;
-  const fitnessLine = todayRow
-    ? (todayRow.status === 'train' ? `<span class="tag train">练 ${esc(todayRow.fitness)}</span>`
-      : todayRow.status === 'rest' ? '<span class="tag rest">休息</span>'
-      : todayRow.status === 'plan' ? `<span class="tag plan">计划 ${esc(todayRow.fitness)}</span>`
-      : '<span class="tag">今日未记训练</span>')
-    : '<span class="tag">今天还没记日报</span>';
-
+  const dy = (state.data.douyin?.accounts || []).length;
+  const xh = (state.data.xhs?.accounts || []).length;
   const entries = [
-    ['notes', '☰', '笔记', '29 份 md：档案 / 日报 / 主题 / 知识库', h.notes + ' 篇'],
-    ['quiz', '✎', '刷题', '选择题即时判分，进度和桌面 hub 共用', h.questions + ' 题'],
-    ['fitness', '♥', '健身', '体重曲线 / 打卡率 / 部位分布', '连续 ' + (d.fitness.summary?.rec_streak ?? 0) + ' 天'],
-    ['timeline', '⏱', '时间线', '把日报和交流记录摊成一条轴', (d.timeline.days || []).length + ' 天'],
+    ['douyin', '♪', '抖音', '多账号 / 作品 / 每日趋势 / 自动同步', dy + ' 个账号'],
+    ['xhs', '✿', '小红书', '多账号 / 笔记 / 近 30 天指标 / 自动导出', xh + ' 个账号'],
   ];
-
-  const recent = (h.recent || []).map((f) => `
-    <div class="recent-row" data-note="${escAttr(f.path)}">
-      <span class="name">${esc(f.title)}</span>
-      <span class="when">${new Date(f.mtime * 1000).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })}</span>
-    </div>`).join('');
+  if (window.AndroidRepo) entries.push(['me', '◉', '我的', '同步记录 / 设置 / 版本', '']);
 
   const html = `
     <div class="hero">
-      <h2>${esc(h.today)} · ${esc(h.week)}</h2>
-      <p>${latest ? `最新体重 <b>${n1(latest.weight)} 斤</b>${wDelta ? `（累计 ${wDelta > 0 ? '-' : '+'}${Math.abs(wDelta).toFixed(1)} 斤）` : ''}` : '还没有体重记录'}</p>
+      <h2>抖音 / 小红书数据工作台</h2>
+      <p>0.x 内测版 · 完全开源免费，可商用可私用</p>
       <div class="chips">
-        <div class="chip"><b>${h.notes}</b>篇笔记</div>
-        <div class="chip"><b>${h.questions}</b>道题</div>
-        <div class="chip"><b>${h.wrong}</b>道错题</div>
-        <div class="chip">${fitnessLine}</div>
+        <div class="chip"><b>${dy}</b>个抖音账号</div>
+        <div class="chip"><b>${xh}</b>个小红书账号</div>
       </div>
     </div>
 
-    <div class="grid g4" style="margin-bottom:14px">
-      <div class="tile accent"><div class="v">${h.subjects}</div><div class="k">科目</div></div>
-      <div class="tile"><div class="v">${n0(h.questions)}</div><div class="k">题目总数</div></div>
-      <div class="tile bad"><div class="v">${n0(h.wrong)}</div><div class="k">待攻克错题</div></div>
-      <div class="tile"><div class="v">${h.notes}</div><div class="k">笔记文件</div></div>
-    </div>
-
-    <div class="grid g4" style="margin-bottom:14px">
+    <div class="grid g3" style="margin-bottom:14px">
       ${entries.map(([k, ico, name, desc, num]) => `
         <div class="entry" data-go="${k}">
           <div class="top"><span class="ico">${ico}</span>${name}</div>
@@ -398,18 +365,14 @@ function pageHome() {
     </div>
 
     <div class="card card-pad">
-      <div class="card-title">最近更新 <span class="hint">点一行直接看</span></div>
-      ${recent || '<div class="empty">还没有笔记</div>'}
+      <div class="card-title">反馈</div>
+      微信 <b>jack9527xz</b> · 邮箱 <b>1060061749@qq.com</b>
+      <div class="hint" style="margin-top:6px">用着有问题、想要新功能，都可以加微信或发邮件。</div>
     </div>`;
 
   return {
-    sub: '笔记、刷题、健身、账号数据，一个页面看完',
+    sub: '抖音、小红书账号数据，一个页面看完',
     html,
-    mount() {
-      document.querySelectorAll('[data-note]').forEach((el) => el.addEventListener('click', () => {
-        go('notes', { path: el.dataset.note });
-      }));
-    },
   };
 }
 

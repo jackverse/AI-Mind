@@ -1,10 +1,10 @@
 {
-    "notes":  "首个公开版本：Windows 桌面端 + Android 手机端。仓库只放工具源码与构建脚本，不含任何个人数据；APK 不带内置快照，首次打开在「我的」里填自己的数据仓库即可。",
+    "notes":  "精简为 4 个入口：首页 / 抖音 / 小红书 / 我的。0.x 开头都是内测版，功能和接口可能变；反馈加微信 jack9527xz 或邮件 1060061749@qq.com。仓库与安装包不含任何个人数据。",
     "com.jackverse.secondbrain":  {
-                                      "versionCode":  1,
-                                      "versionName":  "0.0.1",
+                                      "versionCode":  2,
+                                      "versionName":  "0.0.2",
                                       "apk":  "hub-android.apk",
                                       "size":  128240,
-                                      "sha256":  "db495a909c47ecd307eb9ea978de7a61f1047ad443cd95370d65c0ff7dd5e5c5"
+                                      "sha256":  "3b608dd77c4c78a6ee56feaaddaccf09f50f9db833deed099aae3b22ec5763f7"
                                   }
 }

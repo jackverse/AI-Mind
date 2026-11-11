@@ -28,7 +28,7 @@ from core import modules, privacy, usage
 from core.paths import Ctx
 
 APP_TITLE = "第二大脑"
-VERSION = "0.0.1"
+VERSION = "0.0.2"
 
 # ---------------------------------------------------------------- 导航配置
 # 键 -> (图标, 显示名, 副标题, 页面模块, 权重)
@@ -41,7 +41,7 @@ if not PAGES:
                      "或先跑 python tools/hub/discover.py --write")
 
 # 首页固定第一、设置页提供恢复入口：这两个不给隐藏/删除，防止把管理入口弄丢
-PROTECTED = {"home", "settings"}
+PROTECTED = {"home", "me"}
 
 # 左侧卡片顺序：默认按权重降序（同权重保持字典书写顺序）
 NAV_ORDER = sorted(PAGES, key=lambda k: -PAGES[k][4])
@@ -177,6 +177,7 @@ class App:
         self.plugin_errors = []
         self.registry = self._build_registry()
         self.privacy_on = privacy.enabled()
+        self.version = VERSION
 
         root.title(f"{APP_TITLE} · 超级工具 v{VERSION}")
         root.geometry("1180x760")
@@ -195,7 +196,7 @@ class App:
         head.pack(fill="x", pady=(20, 14), padx=16)
         tk.Label(head, text=APP_TITLE, font=(ui.UI, 15, "bold"), bg=ui.C["sidebar"],
                  fg="white", anchor="w").pack(fill="x")
-        tk.Label(head, text="notes · kb · quiz", font=(ui.UI, 8), bg=ui.C["sidebar"],
+        tk.Label(head, text="douyin · xhs · data", font=(ui.UI, 8), bg=ui.C["sidebar"],
                  fg="#6b7688", anchor="w").pack(fill="x")
         self.sort_btn = tk.Label(head, text=f"排序：{SORT_LABEL[self.sort_mode]} ⇄",
                                  font=(ui.UI, 8), bg=ui.C["sidebar"], fg="#8ea6d8",
@@ -428,15 +429,15 @@ class App:
         self.privacy_on = privacy.set_enabled(on)
         self._paint_privacy()
         current = self.current
-        self.invalidate(keep="settings" if current == "settings" else None)
-        if current and current != "settings":
+        self.invalidate(keep="me" if current == "me" else None)
+        if current and current != "me":
             rec = self.recording
             self.recording = False
             try:
                 self.goto(current)
             finally:
                 self.recording = rec
-        page = self.pages.get("settings")
+        page = self.pages.get("me")
         if page is not None and hasattr(page, "sync_privacy"):
             page.sync_privacy()
         if notify:
@@ -451,7 +452,7 @@ class App:
         self.usage, _pinned = usage.toggle_pin(key, self.usage)
         self.build_nav()
         self.refresh_status()
-        page = self.pages.get("settings")
+        page = self.pages.get("me")
         if page is not None and hasattr(page, "refresh"):
             page.refresh()
 
@@ -475,7 +476,7 @@ class App:
         if cur is None or cur["deleted_at"]:
             self._switch_home()
         self.refresh_status()
-        page = self.pages.get("settings")
+        page = self.pages.get("me")
         if page is not None and hasattr(page, "refresh_modules"):
             page.refresh_modules()
 
@@ -677,7 +678,7 @@ class App:
     def invalidate(self, keep=None):
         """数据源变了（建库 / 换范围）：销毁除设置页外的缓存页面，下次访问重建。"""
         for k in list(self.pages):
-            if k in (keep, "settings"):
+            if k in (keep, "me"):
                 continue
             self.pages.pop(k).destroy()
             if k in self.ctx.loaded:
